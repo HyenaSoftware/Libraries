@@ -211,6 +211,71 @@ namespace reactive_framework
 		private:
 			std::vector<std::shared_ptr<typed_behaviour<T>>> _rvs;
 		};
+
+		//
+		// helper for flatmap_behaviour
+		//
+		template<class U> struct flatten_type_of
+		{
+			typedef std::vector<U> type;
+		};
+		template<class U> struct flatten_type_of<std::vector<U>>
+		{
+			typedef typename flatten_type_of<U>::type type;
+		};
+
+		template<class T, class S> class flatmap_behaviour : public typed_behaviour<T>
+		{
+		public:
+			template<class T> struct extract_from_vec
+			{
+				T _t;
+
+				extract_from_vec(T t_) : _t{std::move(t_)} { }
+				void push(std::vector<T>& vec_)
+				{
+					vec_.push_back(_t);
+				}
+			};
+
+			template<class T> struct extract_from_vec<std::vector<T>>
+			{
+				std::vector<T> _t;
+				extract_from_vec(std::vector<T> t_) : _t{std::move(t_)} { }
+				template<class U> void push(std::vector<U>& vec_) const
+				{
+					for (auto& v : _t)
+					{
+						extract_from_vec<T> extractor {v};
+
+						extractor.push(vec_);
+					}
+				}
+			};
+
+			static_assert(Utility::is_vector<T>::value, "Type T must be some kind of vector");
+			static_assert(Utility::is_vector<S>::value, "Type S must be some kind of vector");
+
+			//typedef ? source_type;	// it's like vector<vector<int>>
+
+			flatmap_behaviour(std::shared_ptr<typed_behaviour<S>> rv_)
+			{
+				std::swap(_rv, rv_);
+			}
+
+			result_type operator()() const override
+			{
+				result_type result;
+
+				extract_from_vec<S> extractor { (*_rv)() };
+				extractor.push(result);
+
+				return result;
+			}
+
+		private:
+			std::shared_ptr<typed_behaviour<S>> _rv;
+		};
 	}
 
 	//
@@ -319,8 +384,16 @@ namespace reactive_framework
 			return rv_builder<std::vector<T>> { new_behaviour };
 		}
 
-		void flat_map()
+		auto flat_map()
+			-> rv_builder<typename detail::flatten_type_of<T>::type>
 		{
+			typedef typename detail::flatten_type_of<T>::type flatten_type;
+
+			static_assert(Utility::is_vector<flatten_type>::value, "Traget type must be some kind of std::vector<?>");
+
+			auto new_behaviour = std::make_shared<detail::flatmap_behaviour<flatten_type, T>>(_rv_core);
+
+			return rv_builder<flatten_type> {std::move(new_behaviour)};
 		}
 
 	private:
@@ -343,6 +416,13 @@ namespace reactive_framework
 	//	[ [a,b], c, [[d,e]] ] = 
 	//
 	//rv_flatmap_builder<> flatmap(std::vector<>)
+	template<class T, class I> auto flatmap(rv<T, I>& rv_)
+	{
+		// T is like vector<vector<T>>
+		rv_builder<T> behaviour {rv_};
+
+		return behaviour.flat_map();
+	}
 
 	//
 	//	join

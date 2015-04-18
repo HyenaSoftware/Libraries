@@ -135,13 +135,13 @@ namespace reactive_framework_unittest
 			{
 				{ 1, 2, 3 },
 				{ 4, 5},
-				{ 6}
+				{ 6 }
 			};
 
-			const vector<int> expected_value { 1, 2, 3, 4, 5, 6 };
+			const vector<int> expected_value{ 1, 2, 3, 4, 5, 6 };
 
 			// vector<vector<T>> -> vector<T>
-			//_rv_factory().flatten(a).to(b);
+			flatmap(a).to(b);
 
 			a = test_value;
 
