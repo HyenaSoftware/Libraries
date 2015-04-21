@@ -78,9 +78,17 @@ namespace reactive_framework
 		{
 		}
 
-		rv(value_type value_, id_type id_) : _value{value_}, _name{id_} {}
+		rv(value_type value_, id_type id_) : _name{id_}
+		{
+			(*_behaviour) = std::move(value_);
+		}
 
 		operator value_type () const
+		{
+			return (*_behaviour)();
+		}
+
+		value_type operator()() const
 		{
 			return (*_behaviour)();
 		}
@@ -134,6 +142,7 @@ namespace reactive_framework
 		rv(...){}
 	};
 
+	static_assert(std::is_default_constructible<rv<int>>::value, "rv<?> must be default constructible");
 
 	// rv basic trait
 	template<class T> struct is_rv : std::false_type{};
@@ -338,28 +347,6 @@ namespace reactive_framework
 			return rv_builder<result_type>{std::move(new_behaviour)};
 		}
 
-		template<class... Us, class... Js>
-			rv_builder<std::tuple<T, Us...>> join_with(std::tuple<std::reference_wrapper<rv<Us, Js>>...> rvs_tpl_) const
-		{
-			typedef Utility::seq_builder<sizeof...(Us)>::type seq_type;
-
-			typedef rv_builder<T> this_class;
-			typedef rv_builder<std::tuple<T, Us...>>(this_class::*PtrJoinWith)(rv<Us, Js>&...) const;
-
-			PtrJoinWith ptr = &this_class::join_with;
-
-			return Utility::extract_n_call(
-				Utility::variadic_bind(ptr, this, seq_type{}),
-				seq_type{},
-				rvs_tpl_);
-		}
-
-		//template<class TRAIT, class... Us, class... Js>
-		//	rv_builder<typename TRAIT:: std::tuple<T, Us...>> join_with(TRAIT, std::tuple<std::reference_wrapper<rv<Us, Js>>...> rvs_) const
-		//{
-		//		return rv_builder<std::tuple<T, Us...>>{};
-		//}
-
 		template<class... Us, class... Js> auto merge_with(rv<Us, Js>&... rvs_)
 		{
 			return merge_with({std::ref(rvs_)...});
@@ -432,21 +419,8 @@ namespace reactive_framework
 	{
 		rv_builder<T1> builder {rv1_};
 
-		tuple<std::reference_wrapper<rv<Ts, Is>>...> tail {std::ref(rvs_)...};
-		
-		return builder.join_with(std::move(tail));
+		return builder.join_with(rvs_...);
 	}
-
-	//template<class TRAIT, class T1, class I1, class... Ts, class... Is>
-	//	auto join(TRAIT t_, rv<T1, I1>& rv1_, rv<Ts, Is>&... rvs_)
-	//{
-	//	rv_builder<T1, TRAIT> builder {rv1_};
-
-	//	tuple<std::reference_wrapper<rv<Ts, Is>>...> tail
-	//		= make_tuple<std::reference_wrapper<rv<Ts, Is>>...>(std::ref(rvs_)...);
-
-	//	return builder.join_with(t_, std::move(tail));
-	//}
 
 	//
 	//	merge
