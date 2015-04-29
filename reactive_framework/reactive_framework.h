@@ -9,22 +9,33 @@
 #include <unordered_set>
 #include <vector>
 
-#include <Utility\meta.h>
 #include <Utility\traits.h>
+#include <Utility\meta.h>
 
 namespace reactive_framework
 {
-	template<class R> class typed_behaviour
+	template<class T> class accessor
 	{
 	public:
-		typedef R result_type;
-
+		typedef T result_type;
+		
 		virtual result_type operator()() const = 0;
+	};
+
+	template<class R> class typed_behaviour : public accessor<R>
+	{
+	public:
 		virtual typed_behaviour& operator=(result_type)
 		{
 			// No operation
 			return *this;
 		}
+
+	private:
+		bool _recursive_lock;
+		
+		// e.g.: a -> b -> a [? fallback to 5]
+		std::function<result_type()> _recursion_handler;	// it provides a solution to have a fallback value
 	};
 
 	template<class T> class value_holder : public typed_behaviour<T>
@@ -34,76 +45,104 @@ namespace reactive_framework
 		value_holder(const value_holder&) = default;
 
 		value_holder& operator=(const value_holder&) = default;
-		value_holder& operator=(result_type t_) override
+		value_holder& operator=(result_type t_)
 		{
 			std::swap(_value, t_);
 
 			return *this;
 		}
 
-		result_type operator()() const override
+		result_type& operator()()
 		{
 			return _value;
 		}
 
+		result_type operator()() const override
+		{
+			return _value;
+		}
 	private:
 		result_type _value;
+	};
+
+	template<class T> class accessor_proxy : public accessor<T>
+	{
+	public:
+		result_type operator()() const override
+		{
+			if (!_src_behaviour)
+			{
+				DBGBREAK
+			}
+
+			return _src_behaviour->operator()();
+		}
+
+		void bind(std::shared_ptr<typed_behaviour<T>> src_behaviour_)
+		{
+			std::swap(_src_behaviour, src_behaviour_);
+		}
+	private:
+		std::shared_ptr<typed_behaviour<T>> _src_behaviour;
 	};
 
 	// forward declaration
 	template<class T> class rv_builder;
 
-
 	template<class T, class I = std::string> class rv
 	{
-		template<class> friend class rv_builder;
 	public:
 		typedef T value_type;
 		typedef I id_type;
 
-		rv() = default;
+		rv()
+		{
+			_accessor->bind(_behaviour);
+		}
 
 		rv(const rv&) = default;
 
-		rv(rv&& other_) : _name{std::move(other_._name)}
+		rv(rv&& other_)
 		{
 			std::swap(_behaviour, other_._behaviour);
+			std::swap(_accessor, other_._accessor);
+			std::swap(_name, other_._name);
 		}
 
-		rv(value_type value_) : _value{value_}
+		rv(value_type value_)
 		{
+			_accessor->bind(_behaviour);
+			(*_behaviour) = std::move(value_);
 		}
 
 		rv(id_type name_) : _name{name_}
 		{
+			_accessor->bind(_behaviour);
 		}
 
 		rv(value_type value_, id_type id_) : _name{id_}
 		{
+			_accessor->bind(_behaviour);
 			(*_behaviour) = std::move(value_);
-		}
-
-		operator value_type () const
-		{
-			return (*_behaviour)();
 		}
 
 		value_type operator()() const
 		{
-			return (*_behaviour)();
+			return _accessor->operator()();
 		}
 
-		rv& operator=(const value_type& value_)
+		operator value_type () const
 		{
-			*_behaviour = value_;
-
-			return *this;
+			return _accessor->operator()();
 		}
+		
+		DEPRECATED("rv can not be updated directly") rv& operator=(const value_type& value_) = delete;
 
 		rv& operator=(const rv& other_)
 		{
 			_name = other_._name;
 			_behaviour = other_._behaviour;
+			_accessor = other_._accessor;
 
 			return *this;
 		}
@@ -111,6 +150,8 @@ namespace reactive_framework
 		void rebind(std::shared_ptr<typed_behaviour<T>> behaviour_)
 		{
 			std::swap(_behaviour, behaviour_);
+
+			_accessor->bind(_behaviour);
 		}
 
 		void set_name(std::string name_)
@@ -123,24 +164,58 @@ namespace reactive_framework
 			return _name;
 		}
 
-	private:
+		std::shared_ptr<accessor<T>> internal_accessor() const
+		{
+			return _accessor;
+		}
+
+	protected:
 		id_type _name = id_type{};
 
 		std::shared_ptr<typed_behaviour<T>> _behaviour = make_default_behaviour();
-			
+		std::shared_ptr<accessor_proxy<T>> _accessor = make_value_accessor();
+
 		static std::shared_ptr<typed_behaviour<T>> make_default_behaviour()
 		{
 			return std::make_shared<value_holder<T>>();
 		}
+		static std::shared_ptr<accessor_proxy<T>> make_value_accessor()
+		{
+			return std::make_shared<accessor_proxy<T>>();
+		}
 	};
 
-	template<class I> class rv<void, I>
+
+	template<class T, class I = std::string> class rv_leaf : public rv<T, I>
 	{
 	public:
-		static_assert(std::is_same<void, void>::value, "Type T can not be void.");
+		rv_leaf()
+		{
+		}
 
-		rv(...){}
+		rv_leaf& operator=(const value_type& value_)
+		{
+			(*_behaviour) = value_;
+			return *this;
+		}
+
+		value_type& operator()()
+		{
+			auto ptr = static_pointer_cast<value_holder<T>>(_behaviour);
+			return ptr->operator ()();
+		}
+
+		operator value_type& ()
+		{
+			auto ptr = static_pointer_cast<value_holder<T>>(_behaviour);
+			return ptr->operator ()();
+		}
+
+	private:
 	};
+
+
+
 
 	static_assert(std::is_default_constructible<rv<int>>::value, "rv<?> must be default constructible");
 
@@ -154,7 +229,7 @@ namespace reactive_framework
 		template<class R, class... Ts> class join_behaviour : public typed_behaviour<R>
 		{
 		public:
-			join_behaviour(std::tuple<std::shared_ptr<typed_behaviour<Ts>>...> rvs_)
+			join_behaviour(std::tuple<std::shared_ptr<accessor<Ts>>...> rvs_)
 				: _rvs{rvs_}
 			{
 			}
@@ -167,7 +242,7 @@ namespace reactive_framework
 			}
 
 		private:
-			std::tuple<std::shared_ptr<typed_behaviour<Ts>>...> _rvs;
+			std::tuple<std::shared_ptr<accessor<Ts>>...> _rvs;
 
 			template<int... Ns> result_type _apply_impl(Utility::seq<Ns...>) const
 			{
@@ -180,7 +255,7 @@ namespace reactive_framework
 		public:
 			typedef IN_TYPE input_type;
 
-			map_behaviour(std::shared_ptr<typed_behaviour<input_type>> src_behaviour_, std::function<result_type(input_type)> func_)
+			map_behaviour(std::shared_ptr<accessor<input_type>> src_behaviour_, std::function<result_type(input_type)> func_)
 			{
 				std::swap(_func, func_);
 				std::swap(_src_behaviour, src_behaviour_);
@@ -193,13 +268,13 @@ namespace reactive_framework
 
 		private:
 			std::function<result_type(input_type)> _func;
-			std::shared_ptr<typed_behaviour<input_type>> _src_behaviour;
+			std::shared_ptr<accessor<input_type>> _src_behaviour;
 		};
 
 		template<class T> class merge_behaviour : public typed_behaviour<std::vector<T>>
 		{
 		public:
-			merge_behaviour(std::vector<std::shared_ptr<typed_behaviour<T>>> rvs_)
+			merge_behaviour(std::vector<std::shared_ptr<accessor<T>>> rvs_)
 			{
 				std::swap(_rvs, rvs_);
 			}
@@ -218,7 +293,7 @@ namespace reactive_framework
 			}
 
 		private:
-			std::vector<std::shared_ptr<typed_behaviour<T>>> _rvs;
+			std::vector<std::shared_ptr<accessor<T>>> _rvs;
 		};
 
 		//
@@ -267,7 +342,7 @@ namespace reactive_framework
 
 			//typedef ? source_type;	// it's like vector<vector<int>>
 
-			flatmap_behaviour(std::shared_ptr<typed_behaviour<S>> rv_)
+			flatmap_behaviour(std::shared_ptr<accessor<S>> rv_)
 			{
 				std::swap(_rv, rv_);
 			}
@@ -283,7 +358,7 @@ namespace reactive_framework
 			}
 
 		private:
-			std::shared_ptr<typed_behaviour<S>> _rv;
+			std::shared_ptr<accessor<S>> _rv;
 		};
 	}
 
@@ -294,14 +369,14 @@ namespace reactive_framework
 	template<class T> class rv_builder
 	{
 	public:
-		rv_builder(std::shared_ptr<typed_behaviour<T>> behaviour_)
+		rv_builder(std::shared_ptr<accessor<T>> accessor_)
 		{
-			std::swap(_rv_core, behaviour_);
+			std::swap(_rv_core, accessor_);
 		}
 
 		template<class I> rv_builder(rv<T, I>& rv_)
 		{
-			_rv_core = rv_._behaviour;
+			_rv_core = rv_.internal_accessor();
 		}
 
 		template<class T> rv_builder<T> flatten(rv<T>&)
@@ -311,7 +386,14 @@ namespace reactive_framework
 
 		template<class I> void to(rv<T, I>& rv_) const
 		{
-			rv_.rebind(std::move(_rv_core));
+			auto behaviour = dynamic_pointer_cast<typed_behaviour<T>>(_rv_core);
+
+			if (!behaviour)
+			{
+				throw runtime_error{ "Bind function is missing. Direct join of rvs are not supported." };
+			}
+
+			rv_.rebind(std::move(behaviour));
 		}
 
 		template<class I = std::string> rv<T, I> build(I id_ = I{}) const
@@ -341,7 +423,7 @@ namespace reactive_framework
 
 			// shared_ptr<typed_behaviour<result_type, T, Us...>>
 			auto new_behaviour = std::make_shared<detail::join_behaviour<result_type, T, Us...>>(
-				make_tuple(_rv_core, rvs_._behaviour...));
+				make_tuple(_rv_core, rvs_.internal_accessor()...));
 
 			// ctor: shared_ptr<typed_behaviour<result_type>>
 			return rv_builder<result_type>{std::move(new_behaviour)};
@@ -359,11 +441,11 @@ namespace reactive_framework
 
 		template<class I> auto merge_with(I it_beg_, I it_end_)
 		{
-			std::vector<std::shared_ptr<typed_behaviour<T>>> src_rvs { _rv_core };
+			std::vector<std::shared_ptr<accessor<T>>> src_rvs { _rv_core };
 			
 			for (auto it = it_beg_; it != it_end_; ++it)
 			{
-				src_rvs.push_back(it->get()._behaviour);
+				src_rvs.push_back(it->get().internal_accessor());
 			}
 
 			auto new_behaviour = std::make_shared<detail::merge_behaviour<T>>(std::move(src_rvs));
@@ -384,7 +466,7 @@ namespace reactive_framework
 		}
 
 	private:
-		std::shared_ptr<typed_behaviour<T>> _rv_core;
+		std::shared_ptr<accessor<T>> _rv_core;
 	};
 
 	//

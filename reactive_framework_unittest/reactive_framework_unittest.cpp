@@ -1,4 +1,8 @@
 #include "stdafx.h"
+
+#pragma warning(push)
+#pragma warning(disable: 4996)
+
 #include "CppUnitTest.h"
 #include "..\reactive_framework\reactive_framework.h"
 
@@ -82,7 +86,7 @@ namespace reactive_framework_unittest
 		TEST_METHOD(TestMerge)
 		{
 			// + traits
-			rv<int> a, b, c, d;
+			rv_leaf<int> a, b, c, d;
 			rv<vector<int>> e;
 
 			// T, T, T -> vector<T>
@@ -110,7 +114,7 @@ namespace reactive_framework_unittest
 		{
 			// + traits
 
-			rv<int> a;
+			rv_leaf<int> a;
 			rv<float> b;
 
 			map(a, MAP_FUNC).to(b);
@@ -128,7 +132,7 @@ namespace reactive_framework_unittest
 		{
 			// +traits
 
-			rv<vector<vector<int>>> a;
+			rv_leaf<vector<vector<int>>> a;
 			rv<vector<int>> b;
 
 			const vector<vector<int>> test_value
@@ -154,7 +158,8 @@ namespace reactive_framework_unittest
 		{
 			auto PASS_THROUGH = [](int n_) { return n_; };
 
-			rv<int> a, c;
+			rv_leaf<int> a;
+			rv<int> c;
 
 			{
 				rv<int> b = map(a, PASS_THROUGH).build();
@@ -173,8 +178,8 @@ namespace reactive_framework_unittest
 
 		TEST_METHOD(TestAutoJoin)
 		{
-			rv<int> a;
-			rv<float> b;
+			rv_leaf<int> a;
+			rv_leaf<float> b;
 			rv<tuple<int, float>> c;
 
 			// int, int -> tuple<int, int>
@@ -189,15 +194,67 @@ namespace reactive_framework_unittest
 			Assert::AreEqual(expected_value, value_of_c);
 		}
 
+		/*
+			a = 4 -> b [=a] -> c [=b]
+
+			map(a, _ * 2).to(b)
+
+			a=5 -> b [= a*2]	  c [=<core>]
+				\				 /
+				 \				/
+				   <core> [=a]
+		*/
+		TEST_METHOD(TestChaining)
+		{
+			rv_leaf<int> a;
+
+			rv<int> b = map(a, PASS_THROUGH).build();
+
+			rv<int> c = map(b, PASS_THROUGH).build();
+
+			const int expected_value_of_a1 = 4;
+
+			a = expected_value_of_a1;
+
+			const int value_of_c1 = a();
+			Assert::AreEqual(expected_value_of_a1, value_of_c1);
+
+			// rebind
+			map(a, DOUBLE_IT).to(b);
+
+			const int value_of_a2 = 5;
+			a = value_of_a2;
+
+			const int expected_value_of_c = value_of_a2 * 2;
+			const int value_of_c2 = c;
+			Assert::AreEqual(expected_value_of_c, value_of_c2);
+		}
+
+		TEST_METHOD(TestBasic)
+		{
+			const int expected_value = 3;
+
+			rv<int> a = expected_value;
+
+			const int value_of_a = a;
+
+			Assert::AreEqual(expected_value, value_of_a);
+		}
 	private:
 
 		// simple
 		static const function<double(int, float)> _JOIN_FUNC;
 		static const function<float(int)> MAP_FUNC;
+		static const function<int(int)> PASS_THROUGH;
+		static const function<int(int)> DOUBLE_IT;
 	};
 
 
 	const function<float(int)> reactive_framework_unittest::MAP_FUNC { [](int n_) {return static_cast<float>(n_); } };
+	const function<int(int)> reactive_framework_unittest::PASS_THROUGH { [](int n_) {return n_; } };
+	const function<int(int)> reactive_framework_unittest::DOUBLE_IT { [](int n_) {return 2 * n_; } };
 	const function<double(int, float)> reactive_framework_unittest::_JOIN_FUNC { [](int n_, float m_) {return n_ * m_; } };
 }
 
+
+#pragma warning(pop)
