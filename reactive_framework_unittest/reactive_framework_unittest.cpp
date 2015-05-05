@@ -87,7 +87,7 @@ namespace reactive_framework_unittest
 		{
 			// + traits
 			rv_leaf<int> a, b, c, d;
-			rv<vector<int>> e;
+			rv_readonly<vector<int>> e;
 
 			// T, T, T -> vector<T>
 			merge( a, b, c ).to(e);
@@ -115,7 +115,7 @@ namespace reactive_framework_unittest
 			// + traits
 
 			rv_leaf<int> a;
-			rv<float> b;
+			rv_readonly<float> b;
 
 			map(a, MAP_FUNC).to(b);
 
@@ -133,7 +133,7 @@ namespace reactive_framework_unittest
 			// +traits
 
 			rv_leaf<vector<vector<int>>> a;
-			rv<vector<int>> b;
+			rv_readonly<vector<int>> b;
 
 			const vector<vector<int>> test_value
 			{
@@ -159,7 +159,7 @@ namespace reactive_framework_unittest
 			auto PASS_THROUGH = [](int n_) { return n_; };
 
 			rv_leaf<int> a;
-			rv<int> c;
+			rv_readonly<int> c;
 
 			{
 				rv<int> b = map(a, PASS_THROUGH).build();
@@ -208,7 +208,7 @@ namespace reactive_framework_unittest
 		{
 			rv_leaf<int> a;
 
-			rv<int> b = map(a, PASS_THROUGH).build();
+			rv_readonly<int> b = map(a, PASS_THROUGH).build();
 
 			rv<int> c = map(b, PASS_THROUGH).build();
 
@@ -234,12 +234,26 @@ namespace reactive_framework_unittest
 		{
 			const int expected_value = 3;
 
-			rv<int> a = expected_value;
+			rv_leaf<int> a = expected_value;
 
 			const int value_of_a = a;
 
 			Assert::AreEqual(expected_value, value_of_a);
 		}
+
+		TEST_METHOD(TestLoop)
+		{
+			rv_leaf<int> a;
+
+			rv<int> b = map(a, PASS_THROUGH).build();
+
+			//map(b, PASS_THROUGH).to(a);
+
+			a = 3;
+
+			//Assert::Fail(L"TODO: Complete it.");
+		}
+
 	private:
 
 		// simple

@@ -25,11 +25,6 @@ namespace reactive_framework
 	template<class R> class typed_behaviour : public accessor<R>
 	{
 	public:
-		virtual typed_behaviour& operator=(result_type)
-		{
-			// No operation
-			return *this;
-		}
 
 	private:
 		bool _recursive_lock;
@@ -70,12 +65,14 @@ namespace reactive_framework
 	public:
 		result_type operator()() const override
 		{
+			auto& src_behaviour = *_src_behaviour;
+
 			if (!_src_behaviour)
 			{
-				DBGBREAK
+				throw std::runtime_error{"source is undefined"};
 			}
 
-			return _src_behaviour->operator()();
+			return src_behaviour();
 		}
 
 		void bind(std::shared_ptr<typed_behaviour<T>> src_behaviour_)
@@ -109,22 +106,19 @@ namespace reactive_framework
 			std::swap(_name, other_._name);
 		}
 
-		rv(value_type value_)
-		{
-			_accessor->bind(_behaviour);
-			(*_behaviour) = std::move(value_);
-		}
-
 		rv(id_type name_) : _name{name_}
 		{
 			_accessor->bind(_behaviour);
 		}
 
-		rv(value_type value_, id_type id_) : _name{id_}
-		{
-			_accessor->bind(_behaviour);
-			(*_behaviour) = std::move(value_);
-		}
+		
+		
+		// force the compiler to make this class polymorphic
+		virtual ~rv() = default;
+
+
+
+		// safe convertion
 
 		value_type operator()() const
 		{
@@ -136,7 +130,10 @@ namespace reactive_framework
 			return _accessor->operator()();
 		}
 		
-		DEPRECATED("rv can not be updated directly") rv& operator=(const value_type& value_) = delete;
+
+		// it's not safe here
+
+		rv& operator=(const value_type& value_) = delete;
 
 		rv& operator=(const rv& other_)
 		{
@@ -147,22 +144,28 @@ namespace reactive_framework
 			return *this;
 		}
 
-		void rebind(std::shared_ptr<typed_behaviour<T>> behaviour_)
-		{
-			std::swap(_behaviour, behaviour_);
 
-			_accessor->bind(_behaviour);
-		}
+
+		// member functions to handle name/id
 
 		void set_name(std::string name_)
 		{
 			std::swap(_name, name_);
 		}
 
+		std::string& name()
+		{
+			return _name;
+		}
+
 		const std::string& name() const
 		{
 			return _name;
 		}
+
+
+
+		// to handle internal accessor
 
 		std::shared_ptr<accessor<T>> internal_accessor() const
 		{
@@ -185,7 +188,29 @@ namespace reactive_framework
 		}
 	};
 
+	/*
+		+ it could have source rvs
+		- value of it is not modifiable directly, e.g.:
+			 a -> b
+			 a = 5
+			 b = 7 // does it have a valid value? this value may be not consistent with the value of the source
+				so it should be updated, but this overwrite the value what it has
+	*/
+	template<class T, class I = std::string> class rv_readonly : public rv<T, I>
+	{
+	public:
+		void rebind(std::shared_ptr<typed_behaviour<T>> behaviour_)
+		{
+			std::swap(_behaviour, behaviour_);
 
+			_accessor->bind(_behaviour);
+		}
+	};
+
+	/*
+		+ internal value is modifiable directly
+		- it can't be a target for chaining
+	*/
 	template<class T, class I = std::string> class rv_leaf : public rv<T, I>
 	{
 	public:
@@ -193,23 +218,41 @@ namespace reactive_framework
 		{
 		}
 
-		rv_leaf& operator=(const value_type& value_)
+		rv_leaf(value_type value_)
 		{
-			(*_behaviour) = value_;
+			auto& behaviour = *static_pointer_cast<value_holder<T>>(_behaviour);
+
+			behaviour = (std::move(value_));
+		}
+
+		rv_leaf(value_type value_, id_type name_) : rv{std::move(name_)}
+		{
+			auto& behaviour = *static_pointer_cast<value_holder<T>>(_behaviour);
+			behaviour = std::move(value_);
+		}
+
+		rv_leaf& operator=(value_type value_)
+		{
+			auto& behaviour = *static_pointer_cast<value_holder<T>>(_behaviour);
+			behaviour = std::move(value_);
+
 			return *this;
 		}
 
 		value_type& operator()()
 		{
-			auto ptr = static_pointer_cast<value_holder<T>>(_behaviour);
-			return ptr->operator ()();
+			auto& behaviour = *static_pointer_cast<value_holder<T>>(_behaviour);
+
+			return behaviour();
 		}
 
-		operator value_type& ()
+		value_type& ref()
 		{
-			auto ptr = static_pointer_cast<value_holder<T>>(_behaviour);
-			return ptr->operator ()();
+			auto& behaviour = *static_pointer_cast<value_holder<T>>(_behaviour);
+
+			return behaviour();
 		}
+
 
 	private:
 	};
@@ -384,7 +427,7 @@ namespace reactive_framework
 			return rv_builder<T> {_rv_core};
 		}
 
-		template<class I> void to(rv<T, I>& rv_) const
+		template<class I> void to(rv_readonly<T, I>& rv_) const
 		{
 			auto behaviour = dynamic_pointer_cast<typed_behaviour<T>>(_rv_core);
 
@@ -396,9 +439,9 @@ namespace reactive_framework
 			rv_.rebind(std::move(behaviour));
 		}
 
-		template<class I = std::string> rv<T, I> build(I id_ = I{}) const
+		template<class I = std::string> rv_readonly<T, I> build(I id_ = I{}) const
 		{
-			rv<T, I> result;
+			rv_readonly<T, I> result;
 
 			to(result);
 
