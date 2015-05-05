@@ -175,17 +175,8 @@ namespace reactive_framework
 	protected:
 		id_type _name = id_type{};
 
-		std::shared_ptr<typed_behaviour<T>> _behaviour = make_default_behaviour();
-		std::shared_ptr<accessor_proxy<T>> _accessor = make_value_accessor();
-
-		static std::shared_ptr<typed_behaviour<T>> make_default_behaviour()
-		{
-			return std::make_shared<value_holder<T>>();
-		}
-		static std::shared_ptr<accessor_proxy<T>> make_value_accessor()
-		{
-			return std::make_shared<accessor_proxy<T>>();
-		}
+		std::shared_ptr<typed_behaviour<T>> _behaviour = std::make_shared<value_holder<T>>();
+		std::shared_ptr<accessor_proxy<T>> _accessor = std::make_shared<accessor_proxy<T>>();
 	};
 
 	/*
