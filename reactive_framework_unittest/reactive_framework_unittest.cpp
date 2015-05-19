@@ -5,9 +5,9 @@
 
 #include "CppUnitTest.h"
 #include "..\reactive_framework\reactive_framework.h"
+#include "..\reactive_framework\reactive_framework5.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
-using namespace reactive_framework;
 using namespace std;
 
 namespace Microsoft
@@ -79,6 +79,8 @@ namespace Microsoft
 
 namespace reactive_framework_unittest
 {
+	using namespace reactive_framework;
+
 	TEST_CLASS(reactive_framework_unittest)
 	{
 	public:
@@ -270,5 +272,196 @@ namespace reactive_framework_unittest
 	const function<double(int, float)> reactive_framework_unittest::_JOIN_FUNC { [](int n_, float m_) {return n_ * m_; } };
 }
 
+namespace reactive_framework5_unittest
+{
+	using namespace reactive_framework5;
+
+	TEST_CLASS(reactive_framework5_graph_unittest)
+	{
+	public:
+		TEST_METHOD(TestGraphNodeConnection)
+		{
+			auto a = std::make_shared<typed_node<int>>();
+			auto b = std::make_shared<typed_node<int>>();
+			auto e = std::make_shared<typed_edge<int, int>>();
+
+			int result = -1;
+
+			b->on_changed.push_back([&](int v_)
+			{
+				result = v_;
+			});
+
+			graph g;
+
+			g.connect(a, e, b);
+
+			a->set(567);
+
+			Assert::AreEqual(567, b->get());
+
+			Assert::AreEqual(567, result);
+		}
+
+		TEST_METHOD(TestGraphCallback)
+		{
+			typed_node<int> a;
+
+			int result = -1;
+
+			a.on_changed.push_back([&](int v_)
+			{
+				result = v_;
+			});
+
+			a.set(42);
+
+			Assert::AreEqual(42, result);
+
+			Assert::AreEqual(42, a.get());
+		}
+
+		TEST_METHOD(TestMultipleOut)
+		{
+			auto a = std::make_shared<typed_node<int>>();
+			auto b = std::make_shared<typed_node<int>>();
+			auto c = std::make_shared<typed_node<int>>();
+			auto d = std::make_shared<typed_node<int>>();
+
+			a->set_id(101);
+			b->set_id(101);
+			c->set_id(102);
+			d->set_id(103);
+
+			auto eg = []
+			{
+				return std::make_shared<typed_edge<int, int>>();
+			};
+
+			graph g;
+			g.connect(a, eg(), b);
+			g.connect(a, eg(), c);
+			g.connect(a, eg(), d);
+
+
+			int results[] = { -1, -1, -1};
+			auto writer = [&](int value_, int i_)
+			{
+				results[i_] = value_;
+			};
+
+			b->on_changed.push_back(std::bind(writer, std::placeholders::_1, 0));
+			c->on_changed.push_back(std::bind(writer, std::placeholders::_1, 1));
+			d->on_changed.push_back(std::bind(writer, std::placeholders::_1, 2));
+
+			a->set(789);
+
+			Assert::AreEqual(789, b->get());
+			Assert::AreEqual(789, c->get());
+			Assert::AreEqual(789, d->get());
+
+			Assert::AreEqual(789, results[0]);
+			Assert::AreEqual(789, results[1]);
+			Assert::AreEqual(789, results[2]);
+		}
+	};
+
+	TEST_CLASS(reactive_framework5_unittest)
+	{
+	public:
+		TEST_METHOD(TestMap)
+		{
+			// + traits
+			reactive_context rvc;
+
+			rv<int> a;
+			rv<float> b;
+
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+			rvc
+				.from(a)
+				.map(MAP_FUNC)
+				.into(b)
+				;
+
+			// int -> float
+
+			a = 5;
+			const float expected_value = MAP_FUNC(5);
+			const float given_value = b;
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestMap2)
+		{
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+			
+			
+			reactive_context rvc;
+
+			rv<int> a;
+			rv<float> b;
+
+			float given_value;
+			
+			b.on_changed.push_back([&given_value](float v_)
+			{
+				given_value = v_;
+			});
+
+			rvc.from(a).map(MAP_FUNC).into(b);
+
+			// int -> float
+
+			a = 5;
+			const float expected_value = MAP_FUNC(5);
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestCross)
+		{
+			auto to_float = [](int v_){return static_cast<float>(v_);};
+			auto to_int = [](float v_){return static_cast<int>(v_);};
+
+			reactive_context rc;
+
+			rv<int> a;
+			rv<int> b;
+
+			rv<int> d;
+			rv<int> e;
+
+			rv<std::vector<float>> c;
+
+			rc
+				.merge
+				(
+					rc.from(a).map(to_float),
+					rc.from(b).map(to_float)
+				)
+				.into(c)
+				.split
+				(
+					rc.map(to_int).into(d),
+					rc.map(to_int).into(e)
+				);
+
+			a = 3;
+
+			Assert::AreEqual(3, static_cast<int>(d));
+			Assert::AreEqual(0, static_cast<int>(e));
+
+			b = 5;
+
+			Assert::AreEqual(3, static_cast<int>(d));
+			Assert::AreEqual(5, static_cast<int>(e));
+
+			DBGBREAK
+		}
+	};
+}
 
 #pragma warning(pop)
