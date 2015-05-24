@@ -281,9 +281,19 @@ namespace reactive_framework5_unittest
 	public:
 		TEST_METHOD(TestGraphNodeConnection)
 		{
+			int value_in_lambda = -1;
+
+			constexpr int DELTA = 1;
+
+			auto PASS_THROUGH = [&](int n_)
+			{
+				value_in_lambda = n_;
+				return n_ + DELTA;
+			};
+
 			auto a = std::make_shared<typed_node<int>>();
 			auto b = std::make_shared<typed_node<int>>();
-			auto e = std::make_shared<typed_edge<int, int>>();
+			auto e = std::make_shared<typed_edge<int, int>>(PASS_THROUGH);
 
 			int result = -1;
 
@@ -296,11 +306,15 @@ namespace reactive_framework5_unittest
 
 			g.connect(a, e, b);
 
-			a->set(567);
+			constexpr int TEST_VALUE = 567;
 
-			Assert::AreEqual(567, b->get());
+			a->set(TEST_VALUE);
 
-			Assert::AreEqual(567, result);
+			Assert::AreEqual(TEST_VALUE, value_in_lambda);
+
+			Assert::AreEqual(TEST_VALUE + DELTA, b->get());
+
+			Assert::AreEqual(TEST_VALUE + DELTA, result);
 		}
 
 		TEST_METHOD(TestGraphCallback)
@@ -323,6 +337,16 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestMultipleOut)
 		{
+			constexpr int TEST_VALUE = 567;
+			constexpr int DELTA = 1;
+			int value_in_lambda = -1;
+
+			auto PASS_THROUGH = [&](int n_)
+			{
+				value_in_lambda = n_;
+				return n_ + DELTA;
+			};
+
 			auto a = std::make_shared<typed_node<int>>();
 			auto b = std::make_shared<typed_node<int>>();
 			auto c = std::make_shared<typed_node<int>>();
@@ -333,15 +357,10 @@ namespace reactive_framework5_unittest
 			c->set_id(102);
 			d->set_id(103);
 
-			auto eg = []
-			{
-				return std::make_shared<typed_edge<int, int>>();
-			};
-
 			graph g;
-			g.connect(a, eg(), b);
-			g.connect(a, eg(), c);
-			g.connect(a, eg(), d);
+			g.connect(a, std::make_shared<typed_edge<int, int>>(PASS_THROUGH), b);
+			g.connect(a, std::make_shared<typed_edge<int, int>>(PASS_THROUGH), c);
+			g.connect(a, std::make_shared<typed_edge<int, int>>(PASS_THROUGH), d);
 
 
 			int results[] = { -1, -1, -1};
@@ -354,19 +373,254 @@ namespace reactive_framework5_unittest
 			c->on_changed.push_back(std::bind(writer, std::placeholders::_1, 1));
 			d->on_changed.push_back(std::bind(writer, std::placeholders::_1, 2));
 
-			a->set(789);
+			a->set(TEST_VALUE);
 
-			Assert::AreEqual(789, b->get());
-			Assert::AreEqual(789, c->get());
-			Assert::AreEqual(789, d->get());
+			Assert::AreEqual(TEST_VALUE, value_in_lambda);
 
-			Assert::AreEqual(789, results[0]);
-			Assert::AreEqual(789, results[1]);
-			Assert::AreEqual(789, results[2]);
+			Assert::AreEqual(TEST_VALUE + DELTA, b->get());
+			Assert::AreEqual(TEST_VALUE + DELTA, c->get());
+			Assert::AreEqual(TEST_VALUE + DELTA, d->get());
+
+			Assert::AreEqual(TEST_VALUE + DELTA, results[0]);
+			Assert::AreEqual(TEST_VALUE + DELTA, results[1]);
+			Assert::AreEqual(TEST_VALUE + DELTA, results[2]);
 		}
 	};
 
-	TEST_CLASS(reactive_framework5_unittest)
+	TEST_CLASS(reactove_framework5_test_DSL)
+	{
+	public:
+		TEST_METHOD(TestFrom)
+		{
+			reactive_context rvc;
+
+			rv<int> a;
+
+			auto builder = rvc.from(a);
+
+			Assert::IsNotNull(context_of(builder)._ptr_src_rv);
+			Assert::IsNull(context_of(builder)._ptr_dst_rv);
+
+			Assert::IsNotNull(context_of(builder)._src_node.get());
+			Assert::IsNull(context_of(builder)._dst_node.get());
+
+			Assert::IsNull(context_of(builder)._edge.get());
+
+			Assert::IsFalse(context_of(builder).is_complete());
+		}
+
+		TEST_METHOD(TestMap)
+		{
+			reactive_context rvc;
+
+			rv<int> a;
+
+			auto PASS_THROUGH = [](int n_){return n_;};
+
+			auto builder = rvc.map(PASS_THROUGH);
+
+			auto& ctx = context_of(builder);
+
+			Assert::IsNull(ctx._dst_node.get());
+			Assert::IsNull(ctx._src_node.get());
+
+			Assert::IsNull(ctx._ptr_dst_rv);
+			Assert::IsNull(ctx._ptr_src_rv);
+
+			Assert::IsNotNull(ctx._edge.get());
+
+			Assert::IsFalse(context_of(builder).is_complete());
+		}
+
+		TEST_METHOD(TestFromMap)
+		{
+			auto PASS_THROUGH = [](int n_) {return n_; };
+
+			reactive_context rvc;
+
+			rv<int> a;
+
+			auto builder = rvc.from(a).map(PASS_THROUGH);
+
+			Assert::IsNotNull(context_of(builder)._ptr_src_rv);
+			Assert::IsNull(context_of(builder)._ptr_dst_rv);
+
+			Assert::IsNotNull(context_of(builder)._src_node.get());
+			Assert::IsNull(context_of(builder)._dst_node.get());
+
+			Assert::IsNotNull(context_of(builder)._edge.get());
+
+			Assert::IsFalse(context_of(builder).is_complete());
+		}
+
+		TEST_METHOD(TestMapInto)
+		{
+			auto PASS_THROUGH = [](int n_) {return n_; };
+
+			reactive_context rvc;
+
+			rv<int> a;
+
+			auto builder = rvc.map(PASS_THROUGH).into(a);
+
+			Assert::IsNull(context_of(builder)._ptr_src_rv);
+			Assert::IsNotNull(context_of(builder)._ptr_dst_rv);
+
+			Assert::IsNull(context_of(builder)._src_node.get());
+			Assert::IsNotNull(context_of(builder)._dst_node.get());
+
+			Assert::IsNotNull(context_of(builder)._edge.get());
+
+			Assert::IsFalse(context_of(builder).is_complete());
+		}
+
+		//TEST_METHOD(TestMapIntoFrom)
+		//{
+		//	auto PASS_THROUGH = [](int n_) {return n_; };
+
+		//	reactive_context rvc;
+
+		//	rv<int> a, b;
+
+		//	auto builder = rvc.map(PASS_THROUGH).into(b).from(a);
+
+		//	Assert::IsNull(context_of(builder)._ptr_src_rv);
+		//	Assert::IsNull(context_of(builder)._ptr_dst_rv);
+
+		//	Assert::IsNull(context_of(builder)._src_node.get());
+		//	Assert::IsNull(context_of(builder)._dst_node.get());
+
+		//	Assert::IsNull(context_of(builder)._edge.get());
+
+		//	Assert::IsFalse(context_of(builder).is_complete());
+		//}
+
+		TEST_METHOD(TestFromMapInto)
+		{
+			auto PASS_THROUGH = [](int n_) {return n_; };
+
+			reactive_context rvc;
+
+			rv<int> a, b;
+
+			auto builder = rvc.from(a).map(PASS_THROUGH).into(b);
+
+			Assert::IsNull(context_of(builder)._ptr_src_rv);
+			Assert::IsNull(context_of(builder)._ptr_dst_rv);
+
+			Assert::IsNull(context_of(builder)._src_node.get());
+			Assert::IsNull(context_of(builder)._dst_node.get());
+
+			Assert::IsNull(context_of(builder)._edge.get());
+
+			Assert::IsFalse(context_of(builder).is_complete());
+		}
+
+		TEST_METHOD(TestIncompleteBuilder)
+		{
+			auto PASS_THROUGH = [](int n_) {return n_; };
+
+			reactive_context rvc;
+
+			rv<int> a;
+
+			rv_abstract_builder<int, int> builder = rvc.map(PASS_THROUGH).into(a);
+			auto& ctx = context_of(builder);
+
+			Assert::IsNull(context_of(builder)._ptr_src_rv);
+			Assert::IsNotNull(context_of(builder)._ptr_dst_rv);
+
+			Assert::IsNull(context_of(builder)._src_node.get());
+			Assert::IsNotNull(context_of(builder)._dst_node.get());
+
+			Assert::IsNotNull(context_of(builder)._edge.get());
+
+			Assert::IsFalse(context_of(builder).is_complete());
+		}
+
+		TEST_METHOD(TestSplit)
+		{
+			auto PASS_THROUGH = [](int n_) {return n_; };
+
+			reactive_context rvc;
+
+			rv<int> a, b, c;
+
+			rvc.from(a).split
+			(
+				rvc.map(PASS_THROUGH).into(b),
+				rvc.map(PASS_THROUGH).into(c)
+			);
+		}
+
+		TEST_METHOD(TestSplit2)
+		{
+			auto PASS_THROUGH = [](int n_) {return n_; };
+
+			reactive_context rvc;
+
+			rv<int> a, b, c;
+
+			rvc.from(a).map(PASS_THROUGH).split
+			(
+				rvc.into(b),
+				rvc.into(c)
+			);
+		}
+
+		TEST_METHOD(TestMerge)
+		{
+
+		}
+	};
+
+		template<class R, class A> class selector
+		{
+		public:
+			//typedef typename Utility::function_traits<F>::template arg<0>::type nested_arg0_type;
+			//typedef typename Utility::function_traits<F>::result_type nested_result_type;
+
+			typedef R nested_result_type;
+			typedef A nested_arg0_type;
+
+			//typedef std::vector<nested_arg0_type> 
+
+			selector(const selector&) = default;
+
+			template<class F> selector(F f_, int i_) : _i{i_}, _f{f_} {}
+
+			nested_result_type operator()(std::vector<nested_arg0_type>& v_)
+			{
+				return _f(v_[_i]);
+			}
+
+		private:
+			int _i;
+			std::function<nested_result_type (nested_arg0_type)> _f;
+		};
+
+		template<class F> auto make_selector(F f_, int i_)
+		{
+			typedef typename Utility::function_traits<F>::template arg<0>::type nested_arg0_type;
+			typedef typename Utility::function_traits<F>::result_type nested_result_type;
+
+			static_assert(Utility::has_operator_call<F>::value, "");
+
+			return selector<nested_result_type, nested_arg0_type>{ f_, i_};
+		}
+
+
+	/*
+		- event handling
+		- rv
+		- mapper functions which has different input/output types
+		- DSL test in large scale
+		- DSL test case: 
+			rvc.from(a).map(PASS_THROUGH).into(b).into(c);
+			a ----> b
+				\-> c
+	*/
+	TEST_CLASS(reactive_framework5_high_level_unittest)
 	{
 	public:
 		TEST_METHOD(TestMap)
@@ -421,10 +675,13 @@ namespace reactive_framework5_unittest
 			Assert::AreEqual(expected_value, given_value);
 		}
 
+
 		TEST_METHOD(TestCross)
 		{
 			auto to_float = [](int v_){return static_cast<float>(v_);};
 			auto to_int = [](float v_){return static_cast<int>(v_);};
+
+			make_selector(to_int, 0);
 
 			reactive_context rc;
 
@@ -436,17 +693,23 @@ namespace reactive_framework5_unittest
 
 			rv<std::vector<float>> c;
 
+			std::function<int(std::vector<float>&)> func;
+
 			rc
 				.merge
 				(
 					rc.from(a).map(to_float),
 					rc.from(b).map(to_float)
 				)
-				.into(c)
+				.into(c);
+
+			rc.from(c)
 				.split
 				(
-					rc.map(to_int).into(d),
-					rc.map(to_int).into(e)
+					rc.map(func).into(d)
+					//rc.map(make_selector(to_int, 0)).into(d)
+					//rc.map(make_selector(to_int, 0)).into(d),
+					//rc.map(make_selector(to_int, 1)).into(e)
 				);
 
 			a = 3;
