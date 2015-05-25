@@ -474,27 +474,6 @@ namespace reactive_framework5_unittest
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
 
-		//TEST_METHOD(TestMapIntoFrom)
-		//{
-		//	auto PASS_THROUGH = [](int n_) {return n_; };
-
-		//	reactive_context rvc;
-
-		//	rv<int> a, b;
-
-		//	auto builder = rvc.map(PASS_THROUGH).into(b).from(a);
-
-		//	Assert::IsNull(context_of(builder)._ptr_src_rv);
-		//	Assert::IsNull(context_of(builder)._ptr_dst_rv);
-
-		//	Assert::IsNull(context_of(builder)._src_node.get());
-		//	Assert::IsNull(context_of(builder)._dst_node.get());
-
-		//	Assert::IsNull(context_of(builder)._edge.get());
-
-		//	Assert::IsFalse(context_of(builder).is_complete());
-		//}
-
 		TEST_METHOD(TestFromMapInto)
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
@@ -524,7 +503,7 @@ namespace reactive_framework5_unittest
 
 			rv<int> a;
 
-			rv_abstract_builder<int, int> builder = rvc.map(PASS_THROUGH).into(a);
+			rv_abstract_builder<undefined_type, int, int, int> builder = rvc.map(PASS_THROUGH).into(a);
 			auto& ctx = context_of(builder);
 
 			Assert::IsNull(context_of(builder)._ptr_src_rv);
@@ -538,76 +517,37 @@ namespace reactive_framework5_unittest
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
 
-		TEST_METHOD(TestSplit)
-		{
-			auto PASS_THROUGH = [](int n_) {return n_; };
-
-			reactive_context rvc;
-
-			rv<int> a, b, c;
-
-			rvc.from(a).split
-			(
-				rvc.map(PASS_THROUGH).into(b),
-				rvc.map(PASS_THROUGH).into(c)
-			);
-		}
-
-		TEST_METHOD(TestSplit2)
-		{
-			auto PASS_THROUGH = [](int n_) {return n_; };
-
-			reactive_context rvc;
-
-			rv<int> a, b, c;
-
-			rvc.from(a).map(PASS_THROUGH).split
-			(
-				rvc.into(b),
-				rvc.into(c)
-			);
-		}
-
-		TEST_METHOD(TestMerge)
-		{
-
-		}
 	};
 
-		template<class R, class A> class selector
+	template<class R, class A> class selector
+	{
+	public:
+		typedef R nested_result_type;
+		typedef A nested_arg0_type;
+
+		selector(const selector&) = default;
+
+		template<class F> selector(F f_, int i_) : _i{i_}, _f{f_} {}
+
+		nested_result_type operator()(std::vector<nested_arg0_type>& v_)
 		{
-		public:
-			//typedef typename Utility::function_traits<F>::template arg<0>::type nested_arg0_type;
-			//typedef typename Utility::function_traits<F>::result_type nested_result_type;
-
-			typedef R nested_result_type;
-			typedef A nested_arg0_type;
-
-			//typedef std::vector<nested_arg0_type> 
-
-			selector(const selector&) = default;
-
-			template<class F> selector(F f_, int i_) : _i{i_}, _f{f_} {}
-
-			nested_result_type operator()(std::vector<nested_arg0_type>& v_)
-			{
-				return _f(v_[_i]);
-			}
-
-		private:
-			int _i;
-			std::function<nested_result_type (nested_arg0_type)> _f;
-		};
-
-		template<class F> auto make_selector(F f_, int i_)
-		{
-			typedef typename Utility::function_traits<F>::template arg<0>::type nested_arg0_type;
-			typedef typename Utility::function_traits<F>::result_type nested_result_type;
-
-			static_assert(Utility::has_operator_call<F>::value, "");
-
-			return selector<nested_result_type, nested_arg0_type>{ f_, i_};
+			return _f(v_[_i]);
 		}
+
+	private:
+		int _i;
+		std::function<nested_result_type (nested_arg0_type)> _f;
+	};
+
+	template<class F> auto make_selector(F f_, int i_)
+	{
+		typedef typename Utility::function_traits<F>::template arg<0>::type nested_arg0_type;
+		typedef typename Utility::function_traits<F>::result_type nested_result_type;
+
+		static_assert(Utility::has_operator_call<F>::value, "");
+
+		return selector<nested_result_type, nested_arg0_type>{ f_, i_};
+	}
 
 
 	/*
@@ -675,6 +615,64 @@ namespace reactive_framework5_unittest
 			Assert::AreEqual(expected_value, given_value);
 		}
 
+		TEST_METHOD(TestSplit)
+		{
+			reactive_context rvc;
+
+			rv<vector<int>> a;
+			rv<int> b, c;
+
+			rvc.from(a).split
+			(
+				rvc.into(b),
+				rvc.into(c)
+			);
+
+			vector<int> v { 3, 5 };
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+
+			v[0] = 7;
+			a = v;
+
+			int val_of_b2 = b;
+			int val_of_c2 = c;
+
+			Assert::AreEqual(7, val_of_b2);
+			Assert::AreEqual(5, val_of_c2);
+		}
+
+		TEST_METHOD(TestMerge)
+		{
+			rv<int> a, b;
+			rv<vector<int>> c;
+
+			reactive_context rvc;
+			rvc.merge
+			(
+				rvc.from(a),
+				rvc.from(b)
+			).into(c);
+
+			a = 3;
+			b = 7;
+
+			std::vector<int> val_of_c = c;
+			const std::vector<int> expected_c_value {3, 7};
+			Assert::AreEqual(expected_c_value, val_of_c);
+
+			a = 5;
+			b = 7;
+
+			val_of_c = c;
+			const std::vector<int> expected_c_value2 { 5, 7 };
+			Assert::AreEqual(expected_c_value2, val_of_c);
+		}
 
 		TEST_METHOD(TestCross)
 		{
@@ -698,15 +696,15 @@ namespace reactive_framework5_unittest
 			rc
 				.merge
 				(
-					rc.from(a).map(to_float),
-					rc.from(b).map(to_float)
+					rc.from(a),
+					rc.from(b)
 				)
 				.into(c);
 
 			rc.from(c)
 				.split
 				(
-					rc.map(func).into(d)
+					//rc.map(func).into(d)
 					//rc.map(make_selector(to_int, 0)).into(d)
 					//rc.map(make_selector(to_int, 0)).into(d),
 					//rc.map(make_selector(to_int, 1)).into(e)
