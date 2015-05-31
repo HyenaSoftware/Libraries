@@ -299,9 +299,12 @@ namespace reactive_framework5_unittest
 
 			int result = -1;
 
-			b->on_changed.push_back([&](int v_)
+			b->on_changed.insert(
 			{
-				result = v_;
+				0, [&](int v_)
+				{
+					result = v_;
+				}
 			});
 
 			graph<id_type> g;
@@ -325,9 +328,12 @@ namespace reactive_framework5_unittest
 
 			int result = -1;
 
-			a.on_changed.push_back([&](int v_)
+			a.on_changed.insert(
 			{
-				result = v_;
+				0, [&](int v_)
+				{
+					result = v_;
+				}
 			});
 
 			a.set(42);
@@ -371,9 +377,9 @@ namespace reactive_framework5_unittest
 				results[i_] = value_;
 			};
 
-			b->on_changed.push_back(std::bind(writer, std::placeholders::_1, 0));
-			c->on_changed.push_back(std::bind(writer, std::placeholders::_1, 1));
-			d->on_changed.push_back(std::bind(writer, std::placeholders::_1, 2));
+			b->on_changed.insert({0, std::bind(writer, std::placeholders::_1, 0)});
+			c->on_changed.insert({0, std::bind(writer, std::placeholders::_1, 1)});
+			d->on_changed.insert({0, std::bind(writer, std::placeholders::_1, 2)});
 
 			a->set(TEST_VALUE);
 
@@ -521,6 +527,19 @@ namespace reactive_framework5_unittest
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
 
+		TEST_METHOD(TestTo)
+		{
+			auto PASS_THROUGH = [](int n_) {return n_; };
+
+			reactive_context<id_type> rvc;
+
+			rv<int, id_type> a;
+
+			auto b = rvc.from(a).map(PASS_THROUGH).to();
+
+			Assert::IsTrue(typeid(b) == typeid(a));
+		}
+
 	};
 
 	template<class R, class A> class selector
@@ -584,6 +603,29 @@ namespace reactive_framework5_unittest
 				.map(MAP_FUNC)
 				.into(b)
 				;
+
+			// int -> float
+
+			a = 5;
+			const float expected_value = MAP_FUNC(5);
+			const float given_value = b;
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestMapTo)
+		{
+			// + traits
+			reactive_context<id_type> rvc;
+
+			rv<int, id_type> a;
+
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+			auto b = rvc
+				.from(a)
+				.map(MAP_FUNC)
+				.to();
 
 			// int -> float
 

@@ -141,7 +141,7 @@ namespace reactive_framework5
 	public:
 		typedef T value_type;
 
-		std::vector<std::function<void(value_type)>> on_changed;
+		std::unordered_map<uint32_t, std::function<void(value_type)>> on_changed;
 
 		template<class EDGE_OUT, class EDGE_IN> void add_output_edge(std::shared_ptr<typed_edge<EDGE_OUT, EDGE_IN, id_type>> edge_)
 		{
@@ -203,7 +203,7 @@ namespace reactive_framework5
 		{
 			for (auto& func : on_changed)
 			{
-				func(_value);
+				func.second(_value);
 			}
 
 			for (auto& output_node : _output_slots)
@@ -342,6 +342,33 @@ namespace reactive_framework5
 			std::swap(_id, id_);
 		}
 
+		rv(rv&& other_)
+		{
+			other_._uninstall_underlying_node_eventhandler();
+
+			std::swap(_value, other_._value);
+			std::swap(_id, other_._id);
+			std::swap(_underlying_node, other_._underlying_node);
+
+			_install_underlying_node_eventhandler();
+		}
+
+		~rv()
+		{
+			_uninstall_underlying_node_eventhandler();
+		}
+
+		rv& operator=(rv other_)
+		{
+			other_._uninstall_underlying_node_eventhandler();
+
+			std::swap(_value, other_._value);
+			std::swap(_id, other_._id);
+			std::swap(_underlying_node, other_._underlying_node);
+
+			_install_underlying_node_eventhandler();
+		}
+
 		std::vector<std::function<void(value_type)>> on_changed;
 
 		rv& operator=(value_type value_)
@@ -387,14 +414,7 @@ namespace reactive_framework5
 		{
 			std::swap(_underlying_node, underlying_node_);
 
-			// it handles the data updating, which comes from the underlying node
-			auto lthis = this;
-
-			_underlying_node->on_changed.push_back([lthis](value_type value_)
-			{
-				std::swap(lthis->_value, value_);
-				lthis->_fire_on_changed();
-			});
+			_install_underlying_node_eventhandler();
 
 			_underlying_node->set(_value);
 			_underlying_node->set_id(_id);
@@ -415,6 +435,31 @@ namespace reactive_framework5
 			for (auto& func : on_changed)
 			{
 				func(_value);
+			}
+		}
+
+		// it handles the data updating, which comes from the underlying node
+		void _install_underlying_node_eventhandler()
+		{
+			auto lthis = this;
+			auto id = reinterpret_cast<uint32_t>(this);
+
+			_underlying_node->on_changed.insert(
+			{
+				id, [lthis](value_type value_)
+				{
+					std::swap(lthis->_value, value_);
+					lthis->_fire_on_changed();
+				}
+			});
+		}
+
+		void _uninstall_underlying_node_eventhandler()
+		{
+			if (_underlying_node)
+			{
+				auto id = reinterpret_cast<uint32_t>(this);
+				_underlying_node->on_changed.erase(id);
 			}
 		}
 	};
@@ -1127,6 +1172,13 @@ namespace reactive_framework5
 			return rv_abstract_builder<rv_context_type> { context };
 		}
 
+		auto to()
+		{
+			rv<edge_dst_type, id_type> tmp;
+			this->into(tmp);
+			return tmp;
+		}
+
 		auto from(rv<node_src_type>& rv_)
 		{
 			_context._src_node = std::make_shared<typed_node<source_type>>();
@@ -1158,6 +1210,22 @@ namespace reactive_framework5
 	{
 	public:
 		typedef I id_type;
+
+		template<class NS> auto from(rv<NS, id_type>&& rv_)
+		{
+			typedef rv_node_builder<rv_context<NS, undefined_type, undefined_type, undefined_type, id_type>> rv_node_builder_t;
+
+			static_assert(std::is_same<rv_node_builder_t::node_src_type, NS>::value, "");
+			static_assert(std::is_same<rv_node_builder_t::node_dst_type, undefined_type>::value, "");
+
+			auto underlying_ptr = rv_.underlying_node();
+			Utility::throw_if(underlying_ptr == nullptr, "temporary rv can not be empty");
+
+			rv_context<NS, undefined_type, undefined_type, undefined_type, id_type> context{ _graph };
+			context.set_src_node(underlying_ptr);
+
+			return rv_node_builder_t { std::move(context) };
+		}
 
 		template<class NS> auto from(rv<NS, id_type>& rv_)
 		{
