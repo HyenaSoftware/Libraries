@@ -398,13 +398,13 @@ namespace reactive_framework5_unittest
 
 			auto builder = rvc.from(a);
 
-			Assert::IsNotNull(context_of(builder)._ptr_src_rv);
-			Assert::IsNull(context_of(builder)._ptr_dst_rv);
+			Assert::IsNotNull(context_of(builder).ptr_src_rv());
+			Assert::IsNull(context_of(builder).ptr_dst_rv());
 
-			Assert::IsNotNull(context_of(builder)._src_node.get());
-			Assert::IsNull(context_of(builder)._dst_node.get());
+			Assert::IsNotNull(context_of(builder).src_node().get());
+			Assert::IsNull(context_of(builder).dst_node().get());
 
-			Assert::IsNull(context_of(builder)._edge.get());
+			Assert::IsNull(context_of(builder).edge().get());
 
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
@@ -421,13 +421,13 @@ namespace reactive_framework5_unittest
 
 			auto& ctx = context_of(builder);
 
-			Assert::IsNull(ctx._dst_node.get());
-			Assert::IsNull(ctx._src_node.get());
+			Assert::IsNull(ctx.dst_node().get());
+			Assert::IsNull(ctx.src_node().get());
 
-			Assert::IsNull(ctx._ptr_dst_rv);
-			Assert::IsNull(ctx._ptr_src_rv);
+			Assert::IsNull(ctx.ptr_dst_rv());
+			Assert::IsNull(ctx.ptr_src_rv());
 
-			Assert::IsNotNull(ctx._edge.get());
+			Assert::IsNotNull(ctx.edge().get());
 
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
@@ -442,13 +442,13 @@ namespace reactive_framework5_unittest
 
 			auto builder = rvc.from(a).map(PASS_THROUGH);
 
-			Assert::IsNotNull(context_of(builder)._ptr_src_rv);
-			Assert::IsNull(context_of(builder)._ptr_dst_rv);
+			Assert::IsNotNull(context_of(builder).ptr_src_rv());
+			Assert::IsNull(context_of(builder).ptr_dst_rv());
 
-			Assert::IsNotNull(context_of(builder)._src_node.get());
-			Assert::IsNull(context_of(builder)._dst_node.get());
+			Assert::IsNotNull(context_of(builder).src_node().get());
+			Assert::IsNull(context_of(builder).dst_node().get());
 
-			Assert::IsNotNull(context_of(builder)._edge.get());
+			Assert::IsNotNull(context_of(builder).edge().get());
 
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
@@ -463,13 +463,13 @@ namespace reactive_framework5_unittest
 
 			auto builder = rvc.map(PASS_THROUGH).into(a);
 
-			Assert::IsNull(context_of(builder)._ptr_src_rv);
-			Assert::IsNotNull(context_of(builder)._ptr_dst_rv);
+			Assert::IsNull(context_of(builder).ptr_src_rv());
+			Assert::IsNotNull(context_of(builder).ptr_dst_rv());
 
-			Assert::IsNull(context_of(builder)._src_node.get());
-			Assert::IsNotNull(context_of(builder)._dst_node.get());
+			Assert::IsNull(context_of(builder).src_node().get());
+			Assert::IsNotNull(context_of(builder).dst_node().get());
 
-			Assert::IsNotNull(context_of(builder)._edge.get());
+			Assert::IsNotNull(context_of(builder).edge().get());
 
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
@@ -484,13 +484,13 @@ namespace reactive_framework5_unittest
 
 			auto builder = rvc.from(a).map(PASS_THROUGH).into(b);
 
-			Assert::IsNull(context_of(builder)._ptr_src_rv);
-			Assert::IsNull(context_of(builder)._ptr_dst_rv);
+			Assert::IsNull(context_of(builder).ptr_src_rv());
+			Assert::IsNull(context_of(builder).ptr_dst_rv());
 
-			Assert::IsNull(context_of(builder)._src_node.get());
-			Assert::IsNull(context_of(builder)._dst_node.get());
+			Assert::IsNull(context_of(builder).src_node().get());
+			Assert::IsNull(context_of(builder).dst_node().get());
 
-			Assert::IsNull(context_of(builder)._edge.get());
+			Assert::IsNull(context_of(builder).edge().get());
 
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
@@ -503,16 +503,16 @@ namespace reactive_framework5_unittest
 
 			rv<int> a;
 
-			rv_abstract_builder<undefined_type, int, int, int> builder = rvc.map(PASS_THROUGH).into(a);
+			rv_abstract_builder<rv_context<undefined_type, int, int, int>> builder = rvc.map(PASS_THROUGH).into(a);
 			auto& ctx = context_of(builder);
 
-			Assert::IsNull(context_of(builder)._ptr_src_rv);
-			Assert::IsNotNull(context_of(builder)._ptr_dst_rv);
+			Assert::IsNull(context_of(builder).ptr_src_rv());
+			Assert::IsNotNull(context_of(builder).ptr_dst_rv());
 
-			Assert::IsNull(context_of(builder)._src_node.get());
-			Assert::IsNotNull(context_of(builder)._dst_node.get());
+			Assert::IsNull(context_of(builder).src_node().get());
+			Assert::IsNotNull(context_of(builder).dst_node().get());
 
-			Assert::IsNotNull(context_of(builder)._edge.get());
+			Assert::IsNotNull(context_of(builder).edge().get());
 
 			Assert::IsFalse(context_of(builder).is_complete());
 		}
@@ -647,6 +647,77 @@ namespace reactive_framework5_unittest
 			Assert::AreEqual(5, val_of_c2);
 		}
 
+		TEST_METHOD(TestSplit2)
+		{
+			reactive_context rvc;
+
+			rv<vector<int>> a;
+			rv<int> b, c;
+
+			rvc.from(a).split
+			(
+				rvc.into(b),
+				rvc.into(c)
+			);
+
+			vector<int> v{ 3, 5 };
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+
+
+			rv<int> d, e;
+			vector<int> v2{ 11, 17, 101, 49 };
+
+			rvc.from(a).split(
+				rvc.into(d),
+				rvc.into(e)
+			);
+
+			a = v2;
+
+			int val_of_b2 = b;
+			int val_of_c2 = c;
+			int val_of_d2 = d;
+			int val_of_e2 = e;
+
+			Assert::AreEqual(11, val_of_b2);
+			Assert::AreEqual(17, val_of_c2);
+			Assert::AreEqual(101, val_of_d2);
+			Assert::AreEqual(49, val_of_e2);
+		}
+
+		TEST_METHOD(TestSplitOverIndexing)
+		{
+			reactive_context rvc;
+
+			rv<vector<int>> a;
+			rv<int> b, c, d;
+
+			rvc.from(a).split
+			(
+				rvc.into(b),
+				rvc.into(c),
+				rvc.into(d)
+			);
+
+			vector<int> v{ 3, 5 };
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+			int val_of_d = d;
+			int undefined_int {};
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+			Assert::AreEqual(undefined_int, val_of_d);
+		}
+
 		TEST_METHOD(TestMerge)
 		{
 			rv<int> a, b;
@@ -663,16 +734,94 @@ namespace reactive_framework5_unittest
 			b = 7;
 
 			std::vector<int> val_of_c = c;
-			const std::vector<int> expected_c_value {3, 7};
+			const std::vector<int> expected_c_value{ 3, 7 };
 			Assert::AreEqual(expected_c_value, val_of_c);
 
 			a = 5;
 			b = 7;
 
 			val_of_c = c;
-			const std::vector<int> expected_c_value2 { 5, 7 };
+			const std::vector<int> expected_c_value2{ 5, 7 };
 			Assert::AreEqual(expected_c_value2, val_of_c);
 		}
+
+		TEST_METHOD(TestMerge2)
+		{
+			rv<int> a, b, c, d;
+			rv<vector<int>> e;
+
+			reactive_context rvc;
+			rvc.merge
+			(
+				rvc.from(a),
+				rvc.from(b)
+			).into(e);
+
+			a = 808;
+			b = 1919;
+
+			std::vector<int> value = e;
+			const std::vector<int> expected_value { 808, 1919 };
+			Assert::AreEqual(expected_value, value);
+
+			e = std::vector<int> {11};
+
+			rvc.merge(rvc.from(c), rvc.from(d)).into(e);
+
+			a = 51;
+			b = 7;
+			c = 64;
+			d = 1337;
+
+			value = e;
+			const std::vector<int> expected_value2 { 51, 7, 64, 1337 };
+			Assert::AreEqual(expected_value2, value);
+		}
+
+		TEST_METHOD(TestJoinHeterogen)
+		{
+			rv<float> a;
+			rv<char> b;
+			rv<tuple<float, char>> c;
+
+			reactive_context rvc;
+			rvc.join
+			(
+				rvc.from(a),
+				rvc.from(b)
+			).into(c);
+
+			a = 4.f;
+			b = 'b';
+
+			tuple<float, char> val_of_c = c;
+			const tuple<float, char> expected_c_value { 4.f, 'b' };
+			Assert::AreEqual(expected_c_value, val_of_c);
+		}
+
+#pragma message("Missing unitttest: TestJoinHomogen")
+		//
+		// currently it's not working as std::get<T> fails to compile for tuples like tuple<T, T>
+		//
+		/*TEST_METHOD(TestJoinHomogen)
+		{
+			rv<int> a;
+			rv<int> b;
+			rv<tuple<int, int>> c;
+
+			reactive_context rvc;
+			rvc.join(
+				rvc.from(a),
+				rvc.from(b)
+			).into(c);
+
+			a = 4;
+			b = 5;
+
+			tuple<int, int> val_of_c = c;
+			const tuple<int, int> expected_c_value{ 4, 5 };
+			Assert::AreEqual(expected_c_value, val_of_c);
+		}*/
 
 		TEST_METHOD(TestCross)
 		{
@@ -689,9 +838,9 @@ namespace reactive_framework5_unittest
 			rv<int> d;
 			rv<int> e;
 
-			rv<std::vector<float>> c;
+			rv<std::vector<int>> c;
 
-			std::function<int(std::vector<float>&)> func;
+			std::function<int(std::vector<int>&)> func;
 
 			rc
 				.merge
@@ -704,10 +853,8 @@ namespace reactive_framework5_unittest
 			rc.from(c)
 				.split
 				(
-					//rc.map(func).into(d)
-					//rc.map(make_selector(to_int, 0)).into(d)
-					//rc.map(make_selector(to_int, 0)).into(d),
-					//rc.map(make_selector(to_int, 1)).into(e)
+					rc.into(d),
+					rc.into(e)
 				);
 
 			a = 3;
