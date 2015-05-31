@@ -33,14 +33,6 @@ namespace Utility
 		// no op
 	}
 
-	template<class F> void exec_for_each(F f_) { }
-
-	template<class F, class T, class... Ts> void exec_for_each(F f_, T& t_, Ts&... ts_)
-	{
-		f_(t_);
-		exec_for_each(f_, ts_...);
-	}
-
 	constexpr std::size_t operator "" _sz(unsigned long long n_)
 	{
 		return static_cast<size_t>(n_);
