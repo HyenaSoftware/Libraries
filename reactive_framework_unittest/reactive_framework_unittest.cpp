@@ -279,6 +279,8 @@ namespace reactive_framework5_unittest
 	TEST_CLASS(reactive_framework5_graph_unittest)
 	{
 	public:
+		typedef int id_type;
+
 		TEST_METHOD(TestGraphNodeConnection)
 		{
 			int value_in_lambda = -1;
@@ -291,9 +293,9 @@ namespace reactive_framework5_unittest
 				return n_ + DELTA;
 			};
 
-			auto a = std::make_shared<typed_node<int>>();
-			auto b = std::make_shared<typed_node<int>>();
-			auto e = std::make_shared<typed_edge<int, int>>(PASS_THROUGH);
+			auto a = std::make_shared<typed_node<int, id_type>>();
+			auto b = std::make_shared<typed_node<int, id_type>>();
+			auto e = std::make_shared<typed_edge<int, int, id_type>>(PASS_THROUGH);
 
 			int result = -1;
 
@@ -302,7 +304,7 @@ namespace reactive_framework5_unittest
 				result = v_;
 			});
 
-			graph g;
+			graph<id_type> g;
 
 			g.connect(a, e, b);
 
@@ -319,7 +321,7 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestGraphCallback)
 		{
-			typed_node<int> a;
+			typed_node<int, id_type> a;
 
 			int result = -1;
 
@@ -347,20 +349,20 @@ namespace reactive_framework5_unittest
 				return n_ + DELTA;
 			};
 
-			auto a = std::make_shared<typed_node<int>>();
-			auto b = std::make_shared<typed_node<int>>();
-			auto c = std::make_shared<typed_node<int>>();
-			auto d = std::make_shared<typed_node<int>>();
+			auto a = std::make_shared<typed_node<int, id_type>>();
+			auto b = std::make_shared<typed_node<int, id_type>>();
+			auto c = std::make_shared<typed_node<int, id_type>>();
+			auto d = std::make_shared<typed_node<int, id_type>>();
 
 			a->set_id(101);
 			b->set_id(101);
 			c->set_id(102);
 			d->set_id(103);
 
-			graph g;
-			g.connect(a, std::make_shared<typed_edge<int, int>>(PASS_THROUGH), b);
-			g.connect(a, std::make_shared<typed_edge<int, int>>(PASS_THROUGH), c);
-			g.connect(a, std::make_shared<typed_edge<int, int>>(PASS_THROUGH), d);
+			graph<id_type> g;
+			g.connect(a, std::make_shared<typed_edge<int, int, id_type>>(PASS_THROUGH), b);
+			g.connect(a, std::make_shared<typed_edge<int, int, id_type>>(PASS_THROUGH), c);
+			g.connect(a, std::make_shared<typed_edge<int, int, id_type>>(PASS_THROUGH), d);
 
 
 			int results[] = { -1, -1, -1};
@@ -390,11 +392,13 @@ namespace reactive_framework5_unittest
 	TEST_CLASS(reactove_framework5_test_DSL)
 	{
 	public:
+		typedef int id_type;
+
 		TEST_METHOD(TestFrom)
 		{
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a;
+			rv<int, id_type> a;
 
 			auto builder = rvc.from(a);
 
@@ -411,9 +415,9 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestMap)
 		{
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a;
+			rv<int, id_type> a;
 
 			auto PASS_THROUGH = [](int n_){return n_;};
 
@@ -436,9 +440,9 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a;
+			rv<int, id_type> a;
 
 			auto builder = rvc.from(a).map(PASS_THROUGH);
 
@@ -457,9 +461,9 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a;
+			rv<int, id_type> a;
 
 			auto builder = rvc.map(PASS_THROUGH).into(a);
 
@@ -478,9 +482,9 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a, b;
+			rv<int, id_type> a, b;
 
 			auto builder = rvc.from(a).map(PASS_THROUGH).into(b);
 
@@ -499,11 +503,11 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a;
+			rv<int, id_type> a;
 
-			rv_abstract_builder<rv_context<undefined_type, int, int, int>> builder = rvc.map(PASS_THROUGH).into(a);
+			rv_abstract_builder<rv_context<undefined_type, int, int, int, id_type>> builder = rvc.map(PASS_THROUGH).into(a);
 			auto& ctx = context_of(builder);
 
 			Assert::IsNull(context_of(builder).ptr_src_rv());
@@ -563,13 +567,15 @@ namespace reactive_framework5_unittest
 	TEST_CLASS(reactive_framework5_high_level_unittest)
 	{
 	public:
+		typedef int id_type;
+
 		TEST_METHOD(TestMap)
 		{
 			// + traits
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a;
-			rv<float> b;
+			rv<int, id_type> a;
+			rv<float, id_type> b;
 
 			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
 
@@ -593,10 +599,10 @@ namespace reactive_framework5_unittest
 			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
 			
 			
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<int> a;
-			rv<float> b;
+			rv<int, id_type> a;
+			rv<float, id_type> b;
 
 			float given_value;
 			
@@ -617,10 +623,10 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestSplit)
 		{
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<vector<int>> a;
-			rv<int> b, c;
+			rv<vector<int>, id_type> a;
+			rv<int, id_type> b, c;
 
 			rvc.from(a).split
 			(
@@ -649,10 +655,10 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestSplit2)
 		{
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<vector<int>> a;
-			rv<int> b, c;
+			rv<vector<int>, id_type> a;
+			rv<int, id_type> b, c;
 
 			rvc.from(a).split
 			(
@@ -670,7 +676,7 @@ namespace reactive_framework5_unittest
 			Assert::AreEqual(5, val_of_c);
 
 
-			rv<int> d, e;
+			rv<int, id_type> d, e;
 			vector<int> v2{ 11, 17, 101, 49 };
 
 			rvc.from(a).split(
@@ -693,10 +699,10 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestSplitOverIndexing)
 		{
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 
-			rv<vector<int>> a;
-			rv<int> b, c, d;
+			rv<vector<int>, id_type> a;
+			rv<int, id_type> b, c, d;
 
 			rvc.from(a).split
 			(
@@ -720,10 +726,10 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestMerge)
 		{
-			rv<int> a, b;
-			rv<vector<int>> c;
+			rv<int, id_type> a, b;
+			rv<vector<int>, id_type> c;
 
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 			rvc.merge
 			(
 				rvc.from(a),
@@ -747,10 +753,10 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestMerge2)
 		{
-			rv<int> a, b, c, d;
-			rv<vector<int>> e;
+			rv<int, id_type> a, b, c, d;
+			rv<vector<int>, id_type> e;
 
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 			rvc.merge
 			(
 				rvc.from(a),
@@ -780,11 +786,11 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestJoinHeterogen)
 		{
-			rv<float> a;
-			rv<char> b;
-			rv<tuple<float, char>> c;
+			rv<float, id_type> a;
+			rv<char, id_type> b;
+			rv<tuple<float, char>, id_type> c;
 
-			reactive_context rvc;
+			reactive_context<id_type> rvc;
 			rvc.join
 			(
 				rvc.from(a),
@@ -799,7 +805,7 @@ namespace reactive_framework5_unittest
 			Assert::AreEqual(expected_c_value, val_of_c);
 		}
 
-#pragma message("Missing unitttest: TestJoinHomogen")
+#pragma message(HERE"Missing unitttest: TestHomogenJoin")
 		//
 		// currently it's not working as std::get<T> fails to compile for tuples like tuple<T, T>
 		//
@@ -830,15 +836,15 @@ namespace reactive_framework5_unittest
 
 			make_selector(to_int, 0);
 
-			reactive_context rc;
+			reactive_context<id_type> rc;
 
-			rv<int> a;
-			rv<int> b;
+			rv<int, id_type> a;
+			rv<int, id_type> b;
 
-			rv<int> d;
-			rv<int> e;
+			rv<int, id_type> d;
+			rv<int, id_type> e;
 
-			rv<std::vector<int>> c;
+			rv<std::vector<int>, id_type> c;
 
 			std::function<int(std::vector<int>&)> func;
 

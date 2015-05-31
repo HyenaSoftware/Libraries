@@ -43,64 +43,69 @@ namespace Utility
 
 namespace reactive_framework5
 {
-	class edge;	// forward declaration
-
-	class node
+	template<class I> class node
 	{
 	public:
-		typedef int node_id;
+		typedef I id_type;
 
-		node() : _id{ reinterpret_cast<node_id>(this) } {}
+		node() : _id{ reinterpret_cast<id_type>(this) } {}
 
-		node_id id() const
+		id_type id() const
 		{
 			return _id;
 		}
 
-		void set_id(node_id id_)
+		void set_id(id_type id_)
 		{
 			std::swap(_id, id_);
 		}
 
-		//virtual void add_output_edge(std::weak_ptr<edge> edge_) = 0;
-		//virtual void add_input_edge(std::weak_ptr<edge> edge_) = 0;
-
-
 	private:
 
-		node_id _id;
+		id_type _id;
 	};
 
 	define_has_method(add_output_edge);
 	define_has_method(add_input_edge);
 
-	class edge
+	template<class I> class edge
 	{
 	public:
-		typedef int edge_id;
+		typedef I id_type;
 
-		edge() : _id{ reinterpret_cast<edge_id>(this) } {}
+		edge() : _id{ reinterpret_cast<id_type>(this) } {}
 
-		edge_id id() const
+		id_type id() const
 		{
 			return _id;
 		}
 
-	private:
-		edge_id _id;
-	};
+		void set_id(id_type id_)
+		{
+			std::swap(_id, id_);
+		}
 
-	class graph
+	private:
+		id_type _id;
+	};
+	
+	using default_node = node<int>;
+	using default_edge = edge<int>;
+
+	template<class I> class graph
 	{
 	public:
-		typedef node::node_id node_id;
-		typedef edge::edge_id edge_id;
+		typedef typename node<I>::id_type id_type;
+		static_assert(std::is_same<typename node<I>::id_type, typename edge<I>::id_type>::value, "id type of node and edge must be the same.");
+
+		typedef node<I> node_t;
+		typedef edge<I> edge_t;
 
 		template<class SN, class E, class DN> void connect(std::shared_ptr<SN> src_n_, std::shared_ptr<E> edge_, std::shared_ptr<DN> dst_n_)
 		{
-			static_assert(std::is_base_of<node, SN>::value, "Type SN must be subtype of node");
-			static_assert(std::is_base_of<node, DN>::value, "Type DN must be subtype of node");
-			static_assert(std::is_base_of<edge, E>::value, "Type E must be subtype of edge");
+			static_assert(std::is_base_of<node<id_type>, SN>::value, "Type SN must be subtype of node");
+			static_assert(std::is_base_of<node<id_type>, DN>::value, "Type DN must be subtype of node");
+			static_assert(std::is_base_of<edge<id_type>, E>::value, "Type E must be subtype of edge");
 
 			static_assert(has_method_add_input_edge<SN>::value, "");
 			static_assert(has_method_add_output_edge<DN>::value, "");
@@ -122,22 +127,23 @@ namespace reactive_framework5
 
 	private:
 
-		std::unordered_map<edge_id, std::weak_ptr<edge>> _edges;
-		std::unordered_map<node_id, std::weak_ptr<node>> _nodes;
-
+		std::unordered_map<id_type, std::weak_ptr<edge_t>> _edges;
+		std::unordered_map<id_type, std::weak_ptr<node_t>> _nodes;
 	};
 
+	using default_graph = graph<int>;
 
-	template<class R, class A> class typed_edge;
 
-	template<class T> class typed_node : public node
+	template<class R, class A, class I> class typed_edge;
+
+	template<class T, class I> class typed_node : public node<I>
 	{
 	public:
 		typedef T value_type;
 
 		std::vector<std::function<void(value_type)>> on_changed;
 
-		template<class EDGE_OUT, class EDGE_IN> void add_output_edge(std::shared_ptr<typed_edge<EDGE_OUT, EDGE_IN>> edge_)
+		template<class EDGE_OUT, class EDGE_IN> void add_output_edge(std::shared_ptr<typed_edge<EDGE_OUT, EDGE_IN, id_type>> edge_)
 		{
 			_output_slots[edge_] = [edge_](value_type& v_)
 			{
@@ -145,7 +151,7 @@ namespace reactive_framework5
 			};
 		}
 
-		template<class EDGE_OUT, class EDGE_IN> void add_input_edge(std::shared_ptr<typed_edge<EDGE_OUT, EDGE_IN>> edge_)
+		template<class EDGE_OUT, class EDGE_IN> void add_input_edge(std::shared_ptr<typed_edge<EDGE_OUT, EDGE_IN, id_type>> edge_)
 		{
 			// unnecessary for us
 			_input_edges.insert(edge_.get());
@@ -210,11 +216,11 @@ namespace reactive_framework5
 
 		// store a 'strong' reference to the edge to keep it alive
 		// add reference support
-		std::unordered_map<std::shared_ptr<edge>, std::function<void(value_type&)>> _output_slots;
-		std::unordered_set<edge*> _input_edges;
+		std::unordered_map<std::shared_ptr<edge<id_type>>, std::function<void(value_type&)>> _output_slots;
+		std::unordered_set<edge<id_type>*> _input_edges;
 	};
 
-	template<class R, class A> class typed_edge : public edge
+	template<class R, class A, class I> class typed_edge : public edge<I>
 	{
 	public:
 		typedef A input_value_type;
@@ -225,13 +231,13 @@ namespace reactive_framework5
 			_func  = make_func(f_);
 		}
 
-		template<class NODE_INPUT_TYPE> void set_input_node(std::shared_ptr<typed_node<NODE_INPUT_TYPE>> node_)
+		template<class NODE_INPUT_TYPE> void set_input_node(std::shared_ptr<typed_node<NODE_INPUT_TYPE, id_type>> node_)
 		{
 			// no operation
 		}
 
 		//template<class NODE_OUTPUT_TYPE> void set_output_node(std::shared_ptr<typed_node<NODE_OUTPUT_TYPE>> node_)
-		void set_output_node(std::shared_ptr<typed_node<output_value_type>> node_)
+		void set_output_node(std::shared_ptr<typed_node<output_value_type, id_type>> node_)
 		{
 			Utility::throw_if(node_ == nullptr, "underlying node is not exists");
 
@@ -246,14 +252,14 @@ namespace reactive_framework5
 		}
 
 	private:
-		std::shared_ptr<typed_node<output_value_type>> _target;
+		std::shared_ptr<typed_node<output_value_type, id_type>> _target;
 		//std::function<output_value_type(input_value_type)> _lambda;
 
 		struct func_holder
 		{
-			std::shared_ptr<typed_node<output_value_type>>& _target;
+			std::shared_ptr<typed_node<output_value_type, id_type>>& _target;
 
-			func_holder(std::shared_ptr<typed_node<output_value_type>>& target_) : _target{target_}
+			func_holder(std::shared_ptr<typed_node<output_value_type, id_type>>& target_) : _target{target_}
 			{
 			}
 
@@ -265,7 +271,7 @@ namespace reactive_framework5
 			typedef std::function<output_value_type(input_value_type)> lambda_t;
 			lambda_t _lambda;
 
-			func_holder_unary(std::shared_ptr<typed_node<output_value_type>>& target_, lambda_t lambda_)
+			func_holder_unary(std::shared_ptr<typed_node<output_value_type, id_type>>& target_, lambda_t lambda_)
 				: func_holder{std::move(target_) }
 			{
 				std::swap(_lambda, lambda_);
@@ -282,7 +288,7 @@ namespace reactive_framework5
 			typedef std::function<output_value_type(output_value_type, input_value_type)> lambda_t;
 			lambda_t _lambda;
 
-			func_holder_binary(std::shared_ptr<typed_node<output_value_type>>& target_, lambda_t lambda_)
+			func_holder_binary(std::shared_ptr<typed_node<output_value_type, id_type>>& target_, lambda_t lambda_)
 				: func_holder{ std::move(target_) }
 			{
 				std::swap(_lambda, lambda_);
@@ -321,6 +327,7 @@ namespace reactive_framework5
 	{
 	public:
 		typedef T value_type;
+		typedef I id_type;
 
 		std::vector<std::function<void(value_type)>> on_changed;
 
@@ -343,7 +350,7 @@ namespace reactive_framework5
 			return _value;
 		}
 
-		void bind_underlying_node(std::shared_ptr<typed_node<value_type>> underlying_node_)
+		void bind_underlying_node(std::shared_ptr<typed_node<value_type, id_type>> underlying_node_)
 		{
 			std::swap(_underlying_node, underlying_node_);
 
@@ -357,14 +364,14 @@ namespace reactive_framework5
 			});
 		}
 
-		std::shared_ptr<typed_node<value_type>> underlying_node() const
+		std::shared_ptr<typed_node<value_type, id_type>> underlying_node() const
 		{
 			return _underlying_node;
 		}
 	private:
 		value_type _value;
 
-		std::shared_ptr<typed_node<value_type>> _underlying_node;
+		std::shared_ptr<typed_node<value_type, id_type>> _underlying_node;
 
 		void _fire_on_changed()
 		{
@@ -387,12 +394,12 @@ namespace reactive_framework5
 		template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE>
 	*/
 
-	class reactive_context;
-	template<class, class, class, class> class rv_context;
-	template<class, class, class, class> class rv_context_one_to_multiple;
-	template<class, class, class, class> class rv_context_multiple_to_one;
+	template<class> class reactive_context;
+	template<class, class, class, class, class> class rv_context;
+	template<class, class, class, class, class> class rv_context_one_to_multiple;
+	template<class, class, class, class, class> class rv_context_multiple_to_one;
 
-	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE>
+	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE, class I>
 		class rv_abstract_context
 	{
 	public:
@@ -402,41 +409,43 @@ namespace reactive_framework5
 		typedef EDGE_SRC_TYPE edge_src_type;
 		typedef EDGE_DST_TYPE edge_dst_type;
 
-		graph& get_graph()
+		typedef I id_type;
+
+		graph<id_type>& get_graph()
 		{
 			return _graph;
 		}
 
 	protected:
-		rv_abstract_context(graph& graph_) : _graph {graph_}{}
+		rv_abstract_context(graph<id_type>& graph_) : _graph {graph_}{}
 
-		graph& _graph;
+		graph<id_type>& _graph;
 	};
 
-	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE>
-		class rv_context : public rv_abstract_context<NODE_SRC_TYPE, EDGE_SRC_TYPE, EDGE_DST_TYPE, NODE_DST_TYPE>
+	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE, class I>
+		class rv_context : public rv_abstract_context<NODE_SRC_TYPE, EDGE_SRC_TYPE, EDGE_DST_TYPE, NODE_DST_TYPE, I>
 	{
-		template<class, class, class, class> friend class rv_context;
-		template<class, class, class, class> friend class rv_context_one_to_multiple;
+		template<class, class, class, class, class> friend class rv_context;
+		template<class, class, class, class, class> friend class rv_context_one_to_multiple;
 	public:
 
 		template<class NS, class ES, class ED, class ND> struct rebind
 		{
-			typedef rv_context<NS, ES, ED, ND> type;
+			typedef rv_context<NS, ES, ED, ND, id_type> type;
 		};
 
 		template<class NS, class ES, class ED, class ND> using rebind_t = typename rebind<NS, ES, ED, ND>::type;
 
 		rv_context(const rv_context& other_) = default;
 
-		template<class NS, class ES, class ED, class ND> rv_context(rv_context_multiple_to_one<NS, ES, ED, ND> other_)
+		template<class NS, class ES, class ED, class ND> rv_context(rv_context_multiple_to_one<NS, ES, ED, ND, id_type> other_)
 			: rv_abstract_context{ other_._graph }
 		{
 			Utility::swap_if_possible(_dst_node, other_._dst_node);
 			Utility::swap_if_possible(_ptr_dst_rv, other_._ptr_dst_rv);
 		}
 
-		template<class NS, class ES, class ED, class ND> rv_context(rv_context<NS, ES, ED, ND> other_)
+		template<class NS, class ES, class ED, class ND> rv_context(rv_context<NS, ES, ED, ND, id_type> other_)
 			: rv_abstract_context{ other_._graph }
 		{
 			Utility::swap_if_possible(_src_node, other_._src_node);
@@ -446,7 +455,7 @@ namespace reactive_framework5
 			Utility::swap_if_possible(_ptr_dst_rv, other_._ptr_dst_rv);
 		}
 
-		rv_context(graph& graph_)
+		rv_context(graph<id_type>& graph_)
 			: rv_abstract_context{ graph_ }
 		{
 		}
@@ -465,52 +474,52 @@ namespace reactive_framework5
 				&& _ptr_dst_rv != nullptr;
 		}
 
-		std::shared_ptr<typed_node<node_src_type>> src_node() const
+		std::shared_ptr<typed_node<node_src_type, id_type>> src_node() const
 		{
 			return _src_node;
 		}
 
-		std::shared_ptr<typed_node<node_dst_type>> dst_node() const
+		std::shared_ptr<typed_node<node_dst_type, id_type>> dst_node() const
 		{
 			return _dst_node;
 		}
 
-		std::shared_ptr<typed_edge<edge_dst_type, edge_src_type>> edge() const
+		std::shared_ptr<typed_edge<edge_dst_type, edge_src_type, id_type>> edge() const
 		{
 			return _edge;
 		}
 
-		rv<node_src_type>* ptr_src_rv() const
+		rv<node_src_type, id_type>* ptr_src_rv() const
 		{
 			return _ptr_src_rv;
 		}
 
-		rv<node_dst_type>* ptr_dst_rv() const
+		rv<node_dst_type, id_type>* ptr_dst_rv() const
 		{
 			return _ptr_dst_rv;
 		}
 
-		void set_src_node(std::shared_ptr<typed_node<node_src_type>> src_node_)
+		void set_src_node(std::shared_ptr<typed_node<node_src_type, id_type>> src_node_)
 		{
 			std::swap(_src_node, src_node_);
 		}
 
-		void set_dst_node(std::shared_ptr<typed_node<node_dst_type>> dst_node_)
+		void set_dst_node(std::shared_ptr<typed_node<node_dst_type, id_type>> dst_node_)
 		{
 			std::swap(_dst_node, dst_node_);
 		}
 
-		void set_edge(std::shared_ptr<typed_edge<edge_dst_type, edge_src_type>> edge_)
+		void set_edge(std::shared_ptr<typed_edge<edge_dst_type, edge_src_type, id_type>> edge_)
 		{
 			std::swap(_edge, edge_);
 		}
 
-		void set_ptr_src_rv(rv<node_src_type>& rv_)
+		void set_ptr_src_rv(rv<node_src_type, id_type>& rv_)
 		{
 			_ptr_src_rv = &rv_;
 		}
 
-		void set_ptr_dst_rv(rv<node_dst_type>& rv_)
+		void set_ptr_dst_rv(rv<node_dst_type, id_type>& rv_)
 		{
 			_ptr_dst_rv = &rv_;
 		}
@@ -545,24 +554,25 @@ namespace reactive_framework5
 
 		// shared_ptr is used here instead of weak_ptr to keep them alive during the
 		//  graph path building to avoid a lot of boring reference checking
-		std::shared_ptr<typed_node<node_src_type>> _src_node;
-		std::shared_ptr<typed_node<node_dst_type>> _dst_node;
-		std::shared_ptr<typed_edge<edge_dst_type, edge_src_type>> _edge;
+		std::shared_ptr<typed_node<node_src_type, id_type>> _src_node;
+		std::shared_ptr<typed_node<node_dst_type, id_type>> _dst_node;
+		std::shared_ptr<typed_edge<edge_dst_type, edge_src_type, id_type>> _edge;
 
-		rv<node_src_type>* _ptr_src_rv = nullptr;
-		rv<node_dst_type>* _ptr_dst_rv = nullptr;
+		rv<node_src_type, id_type>* _ptr_src_rv = nullptr;
+		rv<node_dst_type, id_type>* _ptr_dst_rv = nullptr;
 	};
 
-	template<class N> struct aggregated_nodes
+	template<class N, class I> struct aggregated_nodes
 	{
 		typedef N node_type;
+		typedef I id_type;
 
-		std::shared_ptr<typed_node<node_type>> node;
-		rv<node_type>* ptr_rv = nullptr;
+		std::shared_ptr<typed_node<node_type, id_type>> node;
+		rv<node_type, id_type>* ptr_rv = nullptr;
 
 		aggregated_nodes() = default;
 
-		aggregated_nodes(std::shared_ptr<typed_node<node_type>> node_, rv<node_type>* ptr_rv_)
+		aggregated_nodes(std::shared_ptr<typed_node<node_type, id_type>> node_, rv<node_type, id_type>* ptr_rv_)
 			: ptr_rv{ ptr_rv_ }
 		{
 			std::swap(node, node_);
@@ -576,16 +586,16 @@ namespace reactive_framework5
 	};
 
 
-	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE>
-		class rv_context_one_to_multiple : public rv_abstract_context<NODE_SRC_TYPE, EDGE_SRC_TYPE, EDGE_DST_TYPE, NODE_DST_TYPE>
+	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE, class I>
+		class rv_context_one_to_multiple : public rv_abstract_context<NODE_SRC_TYPE, EDGE_SRC_TYPE, EDGE_DST_TYPE, NODE_DST_TYPE, I>
 	{
 	public:
-		typedef aggregated_nodes<node_dst_type> target;
+		typedef aggregated_nodes<node_dst_type, id_type> target;
 
 		rv_context_one_to_multiple(const rv_context_one_to_multiple&) = default;
 
 		template<class NS, class ES, class ED, class ND>
-			rv_context_one_to_multiple(rv_context_one_to_multiple<NS, ES, ED, ND> other_)
+			rv_context_one_to_multiple(rv_context_one_to_multiple<NS, ES, ED, ND, id_type> other_)
 			: rv_abstract_context{ other_.get_graph() }
 		{
 			Utility::swap_if_possible(_src_node, other_._src_node);
@@ -594,19 +604,19 @@ namespace reactive_framework5
 		}
 
 		template<class NS, class ES, class ED, class ND>
-			rv_context_one_to_multiple(rv_context<NS, ES, ED, ND> other_)
+			rv_context_one_to_multiple(rv_context<NS, ES, ED, ND, id_type> other_)
 			: rv_abstract_context{ other_.get_graph() }
 		{
 			Utility::swap_if_possible(_src_node, other_._src_node);
 			Utility::swap_if_possible(_ptr_src_rv, other_._ptr_src_rv);
 		}
 
-		void set_src_node(std::shared_ptr<typed_node<node_src_type>> src_node_)
+		void set_src_node(std::shared_ptr<typed_node<node_src_type, id_type>> src_node_)
 		{
 			std::swap(_src_node, src_node_);
 		}
 
-		void set_ptr_src_rv(rv<node_src_type>& rv_)
+		void set_ptr_src_rv(rv<node_src_type, id_type>& rv_)
 		{
 			_ptr_src_rv = &rv_;
 		}
@@ -652,7 +662,7 @@ namespace reactive_framework5
 					};
 
 					++wr_index;
-					auto edge = std::make_shared<typed_edge<edge_dst_type, const edge_src_type&>>(split_func);
+					auto edge = std::make_shared<typed_edge<edge_dst_type, const edge_src_type&, id_type>>(split_func);
 
 					// connect the nodes
 					_graph.connect(_src_node, std::move(edge), out.node);
@@ -674,29 +684,29 @@ namespace reactive_framework5
 
 		// shared_ptr is used here instead of weak_ptr to keep them alive during the
 		//  graph path building to avoid a lot of boring reference checking
-		std::shared_ptr<typed_node<node_src_type>> _src_node;
-		rv<node_src_type>* _ptr_src_rv = nullptr;
+		std::shared_ptr<typed_node<node_src_type, id_type>> _src_node;
+		rv<node_src_type, id_type>* _ptr_src_rv = nullptr;
 
 		std::vector<target> _outputs;
 	};
 
-	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE>
-		class rv_context_multiple_to_one : public rv_abstract_context<NODE_SRC_TYPE, EDGE_SRC_TYPE, EDGE_DST_TYPE, NODE_DST_TYPE>
+	template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE, class I>
+		class rv_context_multiple_to_one : public rv_abstract_context<NODE_SRC_TYPE, EDGE_SRC_TYPE, EDGE_DST_TYPE, NODE_DST_TYPE, I>
 	{
-		template<class, class, class, class> friend class rv_context;
-		template<class, class, class, class> friend class rv_context_multiple_to_one;
+		template<class, class, class, class, class> friend class rv_context;
+		template<class, class, class, class, class> friend class rv_context_multiple_to_one;
 	public:
-		typedef aggregated_nodes<node_src_type> source;
+		typedef aggregated_nodes<node_src_type, id_type> source;
 
 		template<class NS, class ES, class ED, class ND> struct rebind
 		{
-			typedef rv_context_multiple_to_one<NS, ES, ED, ND> type;
+			typedef rv_context_multiple_to_one<NS, ES, ED, ND, id_type> type;
 		};
 
 		template<class NS, class ES, class ED, class ND> using rebind_t = typename rebind<NS, ES, ED, ND>::type;
 
 		template<class NS, class ES, class ED, class ND>
-			rv_context_multiple_to_one(rv_context_multiple_to_one<NS, ES, ED, ND> other_)
+			rv_context_multiple_to_one(rv_context_multiple_to_one<NS, ES, ED, ND, id_type> other_)
 				: rv_abstract_context{ other_.get_graph() }
 		{
 			using namespace Utility;
@@ -706,17 +716,17 @@ namespace reactive_framework5
 			swap_if_possible(_sources, other_._sources);
 		}
 
-		rv_context_multiple_to_one(graph& graph_)
+		rv_context_multiple_to_one(graph<id_type>& graph_)
 			: rv_abstract_context{ graph_ }
 		{
 		}
 
-		void set_dst_node(std::shared_ptr<typed_node<node_dst_type>> dst_node_)
+		void set_dst_node(std::shared_ptr<typed_node<node_dst_type, id_type>> dst_node_)
 		{
 			std::swap(_dst_node, dst_node_);
 		}
 
-		void set_ptr_dst_rv(rv<node_dst_type>& rv_)
+		void set_ptr_dst_rv(rv<node_dst_type, id_type>& rv_)
 		{
 			_ptr_dst_rv = &rv_;
 		}
@@ -766,7 +776,7 @@ namespace reactive_framework5
 
 					++wr_index;
 
-					auto edge = std::make_shared<typed_edge<edge_dst_type, edge_src_type>>(merger_func);
+					auto edge = std::make_shared<typed_edge<edge_dst_type, edge_src_type, id_type>>(merger_func);
 
 					// connect the nodes
 					_graph.connect(in.node, std::move(edge), _dst_node);
@@ -793,28 +803,28 @@ namespace reactive_framework5
 
 		// shared_ptr is used here instead of weak_ptr to keep them alive during the
 		//  graph path building to avoid a lot of boring reference checking
-		std::shared_ptr<typed_node<node_dst_type>> _dst_node;
-		rv<node_dst_type>* _ptr_dst_rv = nullptr;
+		std::shared_ptr<typed_node<node_dst_type, id_type>> _dst_node;
+		rv<node_dst_type, id_type>* _ptr_dst_rv = nullptr;
 
 		std::vector<source> _sources;
 	};
 
-	template<class... NSs, class... ESs, class EDGE_DST_TYPE, class NODE_DST_TYPE>
-	class rv_context_multiple_to_one<std::tuple<NSs...>, std::tuple<ESs...>, EDGE_DST_TYPE, NODE_DST_TYPE>
-		: public rv_abstract_context<std::tuple<NSs...>, std::tuple<ESs...>, EDGE_DST_TYPE, NODE_DST_TYPE>
+	template<class... NSs, class... ESs, class EDGE_DST_TYPE, class NODE_DST_TYPE, class I>
+	class rv_context_multiple_to_one<std::tuple<NSs...>, std::tuple<ESs...>, EDGE_DST_TYPE, NODE_DST_TYPE, I>
+		: public rv_abstract_context<std::tuple<NSs...>, std::tuple<ESs...>, EDGE_DST_TYPE, NODE_DST_TYPE, I>
 	{
-		template<class, class, class, class> friend class rv_context;
-		template<class, class, class, class> friend class rv_context_multiple_to_one;
+		template<class, class, class, class, class> friend class rv_context;
+		template<class, class, class, class, class> friend class rv_context_multiple_to_one;
 	public:
 		template<class NS, class ES, class ED, class ND> struct rebind
 		{
-			typedef rv_context_multiple_to_one<NS, ES, ED, ND> type;
+			typedef rv_context_multiple_to_one<NS, ES, ED, ND, id_type> type;
 		};
 
 		template<class NS, class ES, class ED, class ND> using rebind_t = typename rebind<NS, ES, ED, ND>::type;
 
 		template<class... NSs2, class... ESs2, class ED, class ND>
-		rv_context_multiple_to_one(rv_context_multiple_to_one<std::tuple<NSs2...>, std::tuple<ESs2...>, ED, ND> other_)
+		rv_context_multiple_to_one(rv_context_multiple_to_one<std::tuple<NSs2...>, std::tuple<ESs2...>, ED, ND, id_type> other_)
 			: rv_abstract_context{ other_.get_graph() }
 		{
 			using namespace Utility;
@@ -824,27 +834,27 @@ namespace reactive_framework5
 			swap_if_possible(_sources, other_._sources);
 		}
 
-		rv_context_multiple_to_one(graph& graph_)
+		rv_context_multiple_to_one(graph<id_type>& graph_)
 			: rv_abstract_context{ graph_ }
 		{
 		}
 
-		void set_dst_node(std::shared_ptr<typed_node<node_dst_type>> dst_node_)
+		void set_dst_node(std::shared_ptr<typed_node<node_dst_type, id_type>> dst_node_)
 		{
 			std::swap(_dst_node, dst_node_);
 		}
 
-		void set_ptr_dst_rv(rv<node_dst_type>& rv_)
+		void set_ptr_dst_rv(rv<node_dst_type, id_type>& rv_)
 		{
 			_ptr_dst_rv = &rv_;
 		}
 
-		template<class NS> void add_src_node(aggregated_nodes<NS> source_)
+		template<class NS> void add_src_node(aggregated_nodes<NS, id_type> source_)
 		{
 			static_assert(Utility::is_any_of<NS, NSs...>::value,
 				"node source type of this input source must be either of the acceptable node src types");
 
-			std::swap(std::get<aggregated_nodes<NS>>(_sources), source_);
+			std::swap(std::get<aggregated_nodes<NS, id_type>>(_sources), source_);
 		}
 
 		bool is_complete() const
@@ -889,7 +899,7 @@ namespace reactive_framework5
 						return std::move(tpl_);
 					};
 
-					auto edge = std::make_shared<typed_edge<std::tuple<NSs...>, sub_node_src_type>>(join_func);
+					auto edge = std::make_shared<typed_edge<std::tuple<NSs...>, sub_node_src_type, id_type>>(join_func);
 
 					// connect the nodes
 					_graph.connect(agg_node_.node, std::move(edge), _dst_node);
@@ -911,10 +921,10 @@ namespace reactive_framework5
 
 		// shared_ptr is used here instead of weak_ptr to keep them alive during the
 		//  graph path building to avoid a lot of boring reference checking
-		std::shared_ptr<typed_node<node_dst_type>> _dst_node;
-		rv<node_dst_type>* _ptr_dst_rv = nullptr;
+		std::shared_ptr<typed_node<node_dst_type, id_type>> _dst_node;
+		rv<node_dst_type, id_type>* _ptr_dst_rv = nullptr;
 
-		std::tuple<aggregated_nodes<NSs>...> _sources;
+		std::tuple<aggregated_nodes<NSs, id_type>...> _sources;
 	};
 
 	template<class> class rv_node_builder;
@@ -922,17 +932,13 @@ namespace reactive_framework5
 
 	/*
 	*/
-	template<class CONTEXT>
-	//template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE>
-		class rv_abstract_builder
+	template<class CONTEXT> class rv_abstract_builder
 	{
-		//static_assert( ! std::is_reference<DST>::value, "reference type");
-		//static_assert( ! std::is_reference<SRC>::value, "reference type");
-
-		friend class reactive_context;
+		template<class> friend class reactive_context;
 		template<class> friend class rv_node_builder;
 	public:
 		typedef CONTEXT context_type;
+		typedef typename CONTEXT::id_type id_type;
 
 		typedef typename CONTEXT::node_src_type node_src_type;
 		typedef typename CONTEXT::node_dst_type node_dst_type;
@@ -945,7 +951,7 @@ namespace reactive_framework5
 		{
 		}
 
-		friend const rv_context<node_src_type, edge_src_type, edge_dst_type, node_dst_type>& context_of(rv_abstract_builder& rvb_)
+		friend const rv_context<node_src_type, edge_src_type, edge_dst_type, node_dst_type, id_type>& context_of(rv_abstract_builder& rvb_)
 		{
 			return rvb_._context;
 		}
@@ -985,13 +991,13 @@ namespace reactive_framework5
 
 			new_context_type context { _context };
 
-			context.set_edge(std::make_shared<typed_edge<result_type, arg0_type>>(f_));
+			context.set_edge(std::make_shared<typed_edge<result_type, arg0_type, id_type>>(f_));
 
 			return rv_edge_builder<new_context_type> { context };
 		}
 
-		template<template<class, class, class, class> class C, class... NDs>
-		void split(rv_abstract_builder<C<undefined_type, undefined_type, undefined_type, NDs>>... abs_)
+		template<template<class, class, class, class, class> class C, class... NDs>
+		void split(rv_abstract_builder<C<undefined_type, undefined_type, undefined_type, NDs, id_type>>... abs_)
 		{
 			using namespace Utility;
 
@@ -1016,7 +1022,8 @@ namespace reactive_framework5
 #pragma message("Check the 2nd argument as it should be edge_src_type instead of node_src_type, but it makes the unittests failed.")
 				node_src_type,
 				first_edge_dst_t,
-				first_node_dst_t
+				first_node_dst_t,
+				id_type
 			> rv_context_t;
 
 			rv_context_t context{ _context };
@@ -1046,10 +1053,10 @@ namespace reactive_framework5
 		template<class C2> rv_edge_builder(C2 context_)
 			: rv_abstract_builder{ std::move(context_) }
 		{
-			static_assert(!std::is_same<graph, std::decay_t<C2>>::value, "?");
+			static_assert(!std::is_same<graph<id_type>, std::decay_t<C2>>::value, "?");
 		}
 
-		template<class new_node_dst_type> auto into(rv<new_node_dst_type>& rv_)
+		template<class new_node_dst_type> auto into(rv<new_node_dst_type, id_type>& rv_)
 		{
 			using namespace Utility;
 
@@ -1068,7 +1075,7 @@ namespace reactive_framework5
 			//throw_if(rv_.underlying_node() != nullptr, "underlying node is being overwrited");
 			if (dst_underlying_node == nullptr)
 			{
-				dst_underlying_node = std::make_shared<typed_node<new_node_dst_type>>();
+				dst_underlying_node = std::make_shared<typed_node<new_node_dst_type, id_type>>();
 			}
 
 			context.set_ptr_dst_rv(rv_);
@@ -1105,19 +1112,21 @@ namespace reactive_framework5
 	};
 
 
-	class reactive_context
+	template<class I> class reactive_context
 	{
 	public:
-		template<class NS> auto from(rv<NS>& rv_)
+		typedef I id_type;
+
+		template<class NS> auto from(rv<NS, id_type>& rv_)
 		{
-			rv_context<NS, undefined_type, undefined_type, undefined_type> context { _graph };
+			rv_context<NS, undefined_type, undefined_type, undefined_type, id_type> context { _graph };
 
 			auto underlying_ptr = rv_.underlying_node();
 
 			context.set_ptr_src_rv(rv_);
-			context.set_src_node(underlying_ptr ? underlying_ptr : std::make_shared<typed_node<NS>>());
+			context.set_src_node(underlying_ptr ? underlying_ptr : std::make_shared<typed_node<NS, id_type>>());
 
-			typedef rv_node_builder<rv_context<NS, undefined_type, undefined_type, undefined_type>> rv_node_builder_t;
+			typedef rv_node_builder<rv_context<NS, undefined_type, undefined_type, undefined_type, id_type>> rv_node_builder_t;
 			rv_node_builder_t builder { std::move(context) };
 
 			static_assert(std::is_same<rv_node_builder_t::node_src_type, NS>::value, "");
@@ -1126,13 +1135,13 @@ namespace reactive_framework5
 			return builder;
 		}
 
-		template<class T> auto into(rv<T>& rv_)
+		template<class T> auto into(rv<T, id_type>& rv_)
 		{
-			typedef rv_context<undefined_type, undefined_type, undefined_type, T> rv_context_t;
+			typedef rv_context<undefined_type, undefined_type, undefined_type, T, id_type> rv_context_t;
 			rv_context_t context{ _graph };
 
 			context.set_ptr_dst_rv(rv_);
-			context.set_dst_node(std::make_shared<typed_node<T>>());
+			context.set_dst_node(std::make_shared<typed_node<T, id_type>>());
 
 			typedef rv_node_builder<rv_context_t> rv_node_builder_t;
 
@@ -1155,10 +1164,10 @@ namespace reactive_framework5
 
 			//static_assert(!std::is_reference<arg0_type>::value, "reference type");
 
-			typedef rv_context<undefined_type, arg0_type, result_type, undefined_type> rv_context_t;
+			typedef rv_context<undefined_type, arg0_type, result_type, undefined_type, id_type> rv_context_t;
 			rv_context_t context { _graph };
 				
-			context.set_edge(std::make_shared<typed_edge<result_type, arg0_type>>(f_));
+			context.set_edge(std::make_shared<typed_edge<result_type, arg0_type, id_type>>(f_));
 
 			rv_edge_builder<rv_context_t> builder { std::move(context) };
 
@@ -1182,8 +1191,8 @@ namespace reactive_framework5
 			sub.EDs : undefined_type
 			sub.NDs : vector<int>
 		*/
-		template<template<class, class, class, class> class C, class... NSs>
-			auto merge(rv_node_builder<C<NSs, undefined_type, undefined_type, undefined_type>>... ebs_)
+		template<template<class, class, class, class, class> class C, class... NSs>
+			auto merge(rv_node_builder<C<NSs, undefined_type, undefined_type, undefined_type, id_type>>... ebs_)
 		{
 			using namespace Utility;
 
@@ -1196,7 +1205,8 @@ namespace reactive_framework5
 				first_of_node_src_type,
 				first_of_node_src_type,
 				vec_first_of_node_src_type,	// edge dst type
-				undefined_type
+				undefined_type,
+				id_type
 			> rv_context_t;
 			
 
@@ -1213,8 +1223,8 @@ namespace reactive_framework5
 			return rv_edge_builder<rv_context_t> { std::move(context) };
 		}
 
-		template<template<class, class, class, class> class C, class... NSs>
-			auto join(rv_node_builder<C<NSs, undefined_type, undefined_type, undefined_type>>... builders_)
+		template<template<class, class, class, class, class> class C, class... NSs>
+			auto join(rv_node_builder<C<NSs, undefined_type, undefined_type, undefined_type, id_type>>... builders_)
 		{
 			using namespace Utility;
 
@@ -1222,7 +1232,8 @@ namespace reactive_framework5
 				std::tuple<NSs...>,
 				std::tuple<NSs...>,
 				std::tuple<NSs...>,
-				undefined_type
+				undefined_type,
+				id_type
 			> rv_context_t;
 
 			rv_context_t context { _graph };
@@ -1232,7 +1243,7 @@ namespace reactive_framework5
 				typedef std::remove_reference_t<decltype(builder_)> builder_t;
 				typedef typename builder_t::node_src_type sub_node_src_type;
 
-				context.add_src_node(aggregated_nodes<sub_node_src_type>
+				context.add_src_node(aggregated_nodes<sub_node_src_type, id_type>
 				{
 					builder_._context.src_node(), builder_._context.ptr_src_rv()
 				});
@@ -1242,6 +1253,6 @@ namespace reactive_framework5
 			return rv_edge_builder<rv_context_t> { std::move(context) };
 		}
 	private:
-		graph _graph;
+		graph<id_type> _graph;
 	};
 }
