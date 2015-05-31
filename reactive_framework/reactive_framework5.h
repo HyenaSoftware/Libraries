@@ -329,6 +329,19 @@ namespace reactive_framework5
 		typedef T value_type;
 		typedef I id_type;
 
+		rv() = default;
+
+		rv(id_type id_)
+		{
+			std::swap(_id, id_);
+		}
+
+		rv(value_type value_, id_type id_ = id_type{})
+		{
+			std::swap(_value, value_);
+			std::swap(_id, id_);
+		}
+
 		std::vector<std::function<void(value_type)>> on_changed;
 
 		rv& operator=(value_type value_)
@@ -350,6 +363,26 @@ namespace reactive_framework5
 			return _value;
 		}
 
+		value_type get() const
+		{
+			return _value;
+		}
+
+		id_type id() const
+		{
+			return _id;
+		}
+
+		void set_id(id_type id_)
+		{
+			std::swap(_id, id_);
+
+			if (_underlying_node)
+			{
+				_underlying_node->set_id(_id);
+			}
+		}
+
 		void bind_underlying_node(std::shared_ptr<typed_node<value_type, id_type>> underlying_node_)
 		{
 			std::swap(_underlying_node, underlying_node_);
@@ -362,6 +395,9 @@ namespace reactive_framework5
 				std::swap(lthis->_value, value_);
 				lthis->_fire_on_changed();
 			});
+
+			_underlying_node->set(_value);
+			_underlying_node->set_id(_id);
 		}
 
 		std::shared_ptr<typed_node<value_type, id_type>> underlying_node() const
@@ -370,6 +406,7 @@ namespace reactive_framework5
 		}
 	private:
 		value_type _value;
+		id_type _id;
 
 		std::shared_ptr<typed_node<value_type, id_type>> _underlying_node;
 
@@ -394,7 +431,7 @@ namespace reactive_framework5
 		template<class NODE_SRC_TYPE, class EDGE_SRC_TYPE, class EDGE_DST_TYPE, class NODE_DST_TYPE>
 	*/
 
-	template<class> class reactive_context;
+	template<class = std::string> class reactive_context;
 	template<class, class, class, class, class> class rv_context;
 	template<class, class, class, class, class> class rv_context_one_to_multiple;
 	template<class, class, class, class, class> class rv_context_multiple_to_one;
@@ -769,6 +806,11 @@ namespace reactive_framework5
 				{
 					auto merger_func = [wr_index](edge_dst_type vec_, edge_src_type value_) -> edge_dst_type
 					{
+						if(vec_.size() <= wr_index)
+						{
+							vec_.resize(wr_index + 1);
+						}
+
 						std::swap(vec_[wr_index], value_);
 
 						return std::move(vec_);
