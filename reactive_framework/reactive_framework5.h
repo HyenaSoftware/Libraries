@@ -9,9 +9,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include <Utility\traits.h>
 #include <Utility\meta.h>
 #include <Utility\exception.hpp>
+#include "graph"
 
 namespace std
 {
@@ -43,95 +43,9 @@ namespace Utility
 
 namespace reactive_framework5
 {
-	template<class I> class node
-	{
-	public:
-		typedef I id_type;
-
-		node() : _id{ reinterpret_cast<id_type>(this) } {}
-
-		id_type id() const
-		{
-			return _id;
-		}
-
-		void set_id(id_type id_)
-		{
-			std::swap(_id, id_);
-		}
-
-	private:
-
-		id_type _id;
-	};
-
-	define_has_method(add_output_edge);
-	define_has_method(add_input_edge);
-
-	template<class I> class edge
-	{
-	public:
-		typedef I id_type;
-
-		edge() : _id{ reinterpret_cast<id_type>(this) } {}
-
-		id_type id() const
-		{
-			return _id;
-		}
-
-		void set_id(id_type id_)
-		{
-			std::swap(_id, id_);
-		}
-
-	private:
-		id_type _id;
-	};
-	
-	using default_node = node<int>;
-	using default_edge = edge<int>;
-
-	template<class I> class graph
-	{
-	public:
-		typedef typename node<I>::id_type id_type;
-		static_assert(std::is_same<typename node<I>::id_type, typename edge<I>::id_type>::value, "id type of node and edge must be the same.");
-
-		typedef node<I> node_t;
-		typedef edge<I> edge_t;
-
-		template<class SN, class E, class DN> void connect(std::shared_ptr<SN> src_n_, std::shared_ptr<E> edge_, std::shared_ptr<DN> dst_n_)
-		{
-			static_assert(std::is_base_of<node<id_type>, SN>::value, "Type SN must be subtype of node");
-			static_assert(std::is_base_of<node<id_type>, DN>::value, "Type DN must be subtype of node");
-			static_assert(std::is_base_of<edge<id_type>, E>::value, "Type E must be subtype of edge");
-
-			static_assert(has_method_add_input_edge<SN>::value, "");
-			static_assert(has_method_add_output_edge<DN>::value, "");
-
-			Utility::throw_if(src_n_ == nullptr, "source node is not exists.");
-			Utility::throw_if(dst_n_ == nullptr, "source node is not exists.");
-			Utility::throw_if(edge_ == nullptr, "edge is not exists.");
-
-			src_n_->add_output_edge(edge_);
-			dst_n_->add_input_edge(edge_);
-
-			edge_->set_input_node(src_n_);
-			edge_->set_output_node(dst_n_);
-
-			_nodes.insert(std::make_pair(src_n_->id(), src_n_));
-			_nodes.insert(std::make_pair(dst_n_->id(), dst_n_));
-			_edges.insert(std::make_pair(edge_->id(), edge_));
-		}
-
-	private:
-
-		std::unordered_map<id_type, std::weak_ptr<edge_t>> _edges;
-		std::unordered_map<id_type, std::weak_ptr<node_t>> _nodes;
-	};
-
-	using default_graph = graph<int>;
+	template<class T> using node = Utility::node<T>;
+	template<class T> using edge = Utility::edge<T>;
+	template<class T> using graph = Utility::graph<T>;
 
 
 	template<class R, class A, class I> class typed_edge;
@@ -467,8 +381,6 @@ namespace reactive_framework5
 
 	struct undefined_type {};
 
-	template<class SRC, class DST> class rv_builder;
-
 	/*
 		node	edge		node
 		T		T& -> U		U
@@ -552,8 +464,9 @@ namespace reactive_framework5
 			return static_cast<bool>(_src_node)
 				&& static_cast<bool>(_dst_node)
 				&& static_cast<bool>(_edge)
-				&& _ptr_src_rv != nullptr
-				&& _ptr_dst_rv != nullptr;
+				//&& _ptr_src_rv != nullptr
+				//&& _ptr_dst_rv != nullptr
+				;
 		}
 
 		std::shared_ptr<typed_node<node_src_type, id_type>> src_node() const
@@ -619,11 +532,17 @@ namespace reactive_framework5
 				// connect the nodes
 				_graph.connect(_src_node, std::move(_edge), _dst_node);
 
-				_ptr_src_rv->bind_underlying_node(std::move(_src_node));
-				_ptr_dst_rv->bind_underlying_node(std::move(_dst_node));
+				if (_ptr_src_rv)
+				{
+					_ptr_src_rv->bind_underlying_node(std::move(_src_node));
+					_ptr_src_rv = nullptr;
+				}
 
-				_ptr_src_rv = nullptr;
-				_ptr_dst_rv = nullptr;
+				if (_ptr_dst_rv)
+				{
+					_ptr_dst_rv->bind_underlying_node(std::move(_dst_node));
+					_ptr_dst_rv = nullptr;
+				}
 			}
 
 			return completed;
@@ -662,8 +581,7 @@ namespace reactive_framework5
 
 		bool is_empty() const
 		{
-			return node == nullptr
-				&& ptr_rv == nullptr;
+			return node == nullptr;//	&& ptr_rv == nullptr;
 		}
 	};
 
@@ -712,7 +630,7 @@ namespace reactive_framework5
 		{
 			return
 				_src_node &&
-				_ptr_src_rv != nullptr &&
+				//_ptr_src_rv != nullptr &&
 				!_outputs.empty();
 		}
 
@@ -752,8 +670,11 @@ namespace reactive_framework5
 					out.ptr_rv->bind_underlying_node(std::move(out.node));
 				}
 
-				_ptr_src_rv->bind_underlying_node(_src_node);
-				_ptr_src_rv = nullptr;
+				if(_ptr_src_rv)
+				{
+					_ptr_src_rv->bind_underlying_node(_src_node);
+					_ptr_src_rv = nullptr;
+				}
 			}
 
 			return completed;
@@ -871,8 +792,11 @@ namespace reactive_framework5
 					in.ptr_rv->bind_underlying_node(std::move(in.node));
 				}
 
-				_ptr_dst_rv->bind_underlying_node(_dst_node);
-				_ptr_dst_rv = nullptr;
+				if (_ptr_dst_rv)
+				{
+					_ptr_dst_rv->bind_underlying_node(_dst_node);
+					_ptr_dst_rv = nullptr;
+				}
 
 				node_dst_type vec;
 				_dst_node->swap_content(vec);
@@ -954,7 +878,7 @@ namespace reactive_framework5
 
 			return
 				_dst_node &&
-				_ptr_dst_rv != nullptr &&
+				//_ptr_dst_rv != nullptr &&
 				srcs_is_non_empties;
 		}
 
@@ -994,8 +918,11 @@ namespace reactive_framework5
 					agg_node_.ptr_rv->bind_underlying_node(std::move(agg_node_.node));
 				});
 
-				_ptr_dst_rv->bind_underlying_node(_dst_node);
-				_ptr_dst_rv = nullptr;
+				if (_ptr_dst_rv)
+				{
+					_ptr_dst_rv->bind_underlying_node(_dst_node);
+					_ptr_dst_rv = nullptr;
+				}
 			}
 
 			return completed;
@@ -1130,9 +1057,7 @@ namespace reactive_framework5
 		}
 	};
 
-
-	template<class CONTEXT>
-		class rv_edge_builder : public rv_abstract_builder<CONTEXT>
+	template<class CONTEXT>	class rv_edge_builder : public rv_abstract_builder<CONTEXT>
 	{
 		template<class> friend class rv_node_builder;
 		template<class> friend class rv_edge_builder;
@@ -1223,6 +1148,7 @@ namespace reactive_framework5
 
 			rv_context<NS, undefined_type, undefined_type, undefined_type, id_type> context{ _graph };
 			context.set_src_node(underlying_ptr);
+			// context.set_ptr_src_rv(nullptr); <!>
 
 			return rv_node_builder_t { std::move(context) };
 		}
@@ -1333,6 +1259,11 @@ namespace reactive_framework5
 			return rv_edge_builder<rv_context_t> { std::move(context) };
 		}
 
+		template<class... Ts> auto join(rv<Ts, id_type>&... rvs_)
+		{
+			return join(from(rvs_)...);
+		}
+
 		template<template<class, class, class, class, class> class C, class... NSs>
 			auto join(rv_node_builder<C<NSs, undefined_type, undefined_type, undefined_type, id_type>>... builders_)
 		{
@@ -1361,6 +1292,12 @@ namespace reactive_framework5
 			});
 			
 			return rv_edge_builder<rv_context_t> { std::move(context) };
+		}
+
+		template<template<class, class, class, class, class> class C, class... NSs, class... ESs, class... EDs>
+			auto join(rv_edge_builder<C<NSs, ESs, EDs, undefined_type, id_type>>... builders_)
+		{
+			return join(builders_.to()...);
 		}
 	private:
 		graph<id_type> _graph;

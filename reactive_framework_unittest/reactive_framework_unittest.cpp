@@ -4,11 +4,13 @@
 #pragma warning(disable: 4996)
 
 #include "CppUnitTest.h"
-#include "..\reactive_framework\reactive_framework.h"
-#include "..\reactive_framework\reactive_framework5.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace std;
+
+#define ENABLE_REACTIVE_FRAMEWORK_4_TEST true
+#define ENABLE_REACTIVE_FRAMEWORK_5_TEST true
+#define ENABLE_REACTIVE_FRAMEWORK_6_TEST false
 
 namespace Microsoft
 {
@@ -76,6 +78,10 @@ namespace Microsoft
 		}
 	}
 }
+
+#if ENABLE_REACTIVE_FRAMEWORK_4_TEST
+#include "..\reactive_framework\reactive_framework.h"
+
 
 namespace reactive_framework_unittest
 {
@@ -271,6 +277,11 @@ namespace reactive_framework_unittest
 	const function<int(int)> reactive_framework_unittest::DOUBLE_IT { [](int n_) {return 2 * n_; } };
 	const function<double(int, float)> reactive_framework_unittest::_JOIN_FUNC { [](int n_, float m_) {return n_ * m_; } };
 }
+#endif
+
+#if ENABLE_REACTIVE_FRAMEWORK_5_TEST
+#include "..\reactive_framework\reactive_framework5.h"
+
 
 namespace reactive_framework5_unittest
 {
@@ -822,7 +833,7 @@ namespace reactive_framework5_unittest
 			d = 1337;
 
 			value = e;
-			const std::vector<int> expected_value2 { 51, 7, 64, 1337 };
+			const std::vector<int> expected_value2{ 51, 7, 64, 1337 };
 			Assert::AreEqual(expected_value2, value);
 		}
 
@@ -834,16 +845,16 @@ namespace reactive_framework5_unittest
 
 			reactive_context<id_type> rvc;
 			rvc.join
-			(
-				rvc.from(a),
-				rvc.from(b)
-			).into(c);
+				(
+					rvc.from(a),
+					rvc.from(b)
+					).into(c);
 
 			a = 4.f;
 			b = 'b';
 
 			tuple<float, char> val_of_c = c;
-			const tuple<float, char> expected_c_value { 4.f, 'b' };
+			const tuple<float, char> expected_c_value{ 4.f, 'b' };
 			Assert::AreEqual(expected_c_value, val_of_c);
 		}
 
@@ -873,8 +884,8 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestCross)
 		{
-			auto to_float = [](int v_){return static_cast<float>(v_);};
-			auto to_int = [](float v_){return static_cast<int>(v_);};
+			auto to_float = [](int v_) {return static_cast<float>(v_); };
+			auto to_int = [](float v_) {return static_cast<int>(v_); };
 
 			make_selector(to_int, 0);
 
@@ -895,7 +906,7 @@ namespace reactive_framework5_unittest
 				(
 					rc.from(a),
 					rc.from(b)
-				)
+					)
 				.into(c);
 
 			rc.from(c)
@@ -903,7 +914,7 @@ namespace reactive_framework5_unittest
 				(
 					rc.into(d),
 					rc.into(e)
-				);
+					);
 
 			a = 3;
 
@@ -919,5 +930,53 @@ namespace reactive_framework5_unittest
 		}
 	};
 }
+#endif
+
+#if ENABLE_REACTIVE_FRAMEWORK_6_TEST
+namespace reactive_framework6_unittest
+{
+	using namespace reactive_framework6;
+
+	TEST_CLASS(reactove_framework6_test_DSL)
+	{
+	public:
+		TEST_METHOD(TestDSL)
+		{
+			auto PASS_THROUGH = [](int n_) -> int
+			{
+				return n_;
+			};
+
+			rv<int, int> a, b;
+
+			reactive_context2<int> rc;
+
+			rc.from(a).map(PASS_THROUGH).into(b);
+			rv<int, int> c{ rc.from(a).map(PASS_THROUGH).to() };
+
+			rc.from(a).map(PASS_THROUGH).map(PASS_THROUGH).into(b);
+
+			rc.from(a).map(PASS_THROUGH).map(PASS_THROUGH).into(b);
+
+
+			auto VEC_PASS_THROUGH = [](std::vector<int> n_)
+			{
+				return n_;
+			};
+
+			rc.merge(
+				rc.from(a),
+				rc.from(b)
+				).map(VEC_PASS_THROUGH);
+
+			rc.merge(
+				rc.from(a).map(PASS_THROUGH),
+				rc.from(b)
+				).map(VEC_PASS_THROUGH);
+		}
+	};
+
+}
+#endif
 
 #pragma warning(pop)
