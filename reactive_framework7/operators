@@ -17,7 +17,6 @@ namespace reactive_framework7
 				: ityped_node { rc_ }
 				, _output_node { std::move(output_node_) }
 				, _operator { std::move(operator_) }
-				//, _rc { rc_ }
 			{
 			}
 
@@ -32,23 +31,20 @@ namespace reactive_framework7
 				//	greedy args initialization
 
 				auto new_val = _operator();
-				bool updateable = _val != new_val;
+				bool need_to_be_updated = _val != new_val;
 
-				if (updateable)
+				if (need_to_be_updated)
 				{
 					std::swap(_val, new_val);
-
-					_rc.on_value_holder_changed(*this);
 				}
 
-				return updateable;
+				return need_to_be_updated;
 			}
 
 		protected:
 			value_t _val;
-			std::function<value_t()> _operator;
 
-			//ireactive_context& _rc;
+			std::function<value_t()> _operator;
 
 			std::shared_ptr<value_holder<value_t>> _output_node;
 		};

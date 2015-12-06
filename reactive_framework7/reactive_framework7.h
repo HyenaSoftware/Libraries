@@ -74,6 +74,7 @@ namespace reactive_framework7
 			_reset_underlying_callback();
 
 			_ptr_value_holder->set_value(val_);
+			_rc.on_value_holder_changed(*_ptr_value_holder);
 		}
 
 		//
@@ -118,6 +119,7 @@ namespace reactive_framework7
 		rv& operator=(value_type value_)
 		{
 			_ptr_value_holder->set_value(value_);
+			_rc.on_value_holder_changed(*_ptr_value_holder);
 
 			return *this;
 		}
@@ -125,6 +127,7 @@ namespace reactive_framework7
 		void set_value(std::function<value_type(value_type)> lambda_)
 		{
 			_ptr_value_holder->set_value(lambda_);
+			_rc.on_value_holder_changed(*_ptr_value_holder);
 		}
 
 		//
@@ -185,7 +188,7 @@ namespace reactive_framework7
 			_rc.regist_rv_edge(ptr_op, { value_holder() });
 			_rc.regist_rv_edge(new_rv.value_holder(), { ptr_op });
 
-			_ptr_value_holder->invalidate();
+			_rc.on_value_holder_changed(*_ptr_value_holder);
 
 			return new_rv;
 		}
@@ -203,7 +206,7 @@ namespace reactive_framework7
 			
 			// it forces to recalculate the operator node
 			// which also fetches the values of rvs_... nodes
-			_ptr_value_holder->invalidate();
+			_rc.on_value_holder_changed(*_ptr_value_holder);
 
 			return new_rv;
 		}
@@ -285,6 +288,8 @@ namespace reactive_framework7
 	class limit_single_chain_execution_policy : reactive_context_exec_policy_tag
 	{
 	public:
+		limit_single_chain_execution_policy(detail::ireactive_context& rc_);
+
 		bool should_propagate(detail::inode& source_);
 		void update_node_from(detail::inode& target_, detail::inode& source_);
 
@@ -294,6 +299,8 @@ namespace reactive_framework7
 	private:
 		std::unordered_map<int, int> _node_id_to_limit;
 		int _single_chain_recompute_limit = 1;
+
+		detail::ireactive_context& _rc;
 	};
 
 
@@ -331,6 +338,8 @@ namespace reactive_framework7
 
 		void copy_setup(const irv& rv_from_, const irv& rv_to_);
 
+		void on_value_holder_changed(detail::inode& src_node_);
+
 		computation_graph_t::vertex_id_t vertex_id_of(const detail::inode& holder_);
 
 		void release_rv(const detail::inode&) override;
@@ -346,11 +355,6 @@ namespace reactive_framework7
 		computation_graph_t _graph;
 
 		std::unordered_map<computation_graph_t::vertex_id_t,	std::shared_ptr<detail::inode>> _vertex_data;
-
-		//
-		//	notification about src_id_ has a new value now
-		//
-		void on_value_holder_changed(detail::inode& src_node_);
 	};
 
 	template<class P> class reactive_context : public abstract_reactive_context
@@ -366,7 +370,7 @@ namespace reactive_framework7
 		}
 
 	private:
-		policy_t _policy;
+		policy_t _policy { *this };
 
 		void _update_node_from(detail::inode& target_, detail::inode& source_) override
 		{

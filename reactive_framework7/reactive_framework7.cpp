@@ -87,6 +87,10 @@ namespace reactive_framework7
 	//
 	//
 	//
+	limit_single_chain_execution_policy::limit_single_chain_execution_policy(detail::ireactive_context& rc_)
+		: _rc { rc_ }
+	{
+	}
 
 	int limit_single_chain_execution_policy::max_single_chain_recompute() const
 	{
@@ -103,7 +107,12 @@ namespace reactive_framework7
 		//
 		++_node_id_to_limit[source_.id()];
 
-		/* bool updated = */ target_.set_value_from(source_);
+		bool updated = target_.set_value_from(source_);
+
+		if (updated)
+		{
+			_rc.on_value_holder_changed(target_);
+		}
 
 		--_node_id_to_limit[source_.id()];
 	}

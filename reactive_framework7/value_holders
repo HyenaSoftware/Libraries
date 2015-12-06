@@ -41,24 +41,16 @@ namespace reactive_framework7
 
 			bool set_value(value_t value_)
 			{
-				bool updateable = _value != value_;
+				bool need_to_be_updated = _value != value_;
 
-				if (updateable)
+				if (need_to_be_updated)
 				{
 					std::swap(_value, value_);
 
-					invalidate();
+					on_changed();
 				}
 
-				return updateable;
-			}
-
-			void invalidate()
-			{
-				on_changed();
-
-				// it's generic: pull up
-				_rc.on_value_holder_changed(*this);
+				return need_to_be_updated;
 			}
 
 			value_t value() const override
