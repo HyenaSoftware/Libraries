@@ -1,0 +1,37 @@
+#pragma once
+#include "stdafx.h"
+#include "utility_ext"
+
+namespace reactive_framework7
+{
+	namespace detail
+	{
+		struct ireactive_context;
+
+		class inode
+		{
+		public:
+			inode(ireactive_context&);
+			~inode();
+
+			virtual bool set_value_from(inode&) = 0;
+
+			int id() const;
+
+		private:
+			static std::atomic<int> _id_counter;
+
+			int _id{ _id_counter++ };
+
+		protected:
+			ireactive_context& _rc;
+		};
+
+		template<class T> struct ityped_node : inode
+		{
+			using inode::inode;
+
+			virtual T value() const = 0;
+		};
+	}
+}

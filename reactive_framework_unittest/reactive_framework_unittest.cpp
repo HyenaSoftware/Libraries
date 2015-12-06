@@ -1,3 +1,4 @@
+
 #include "stdafx.h"
 
 #pragma warning(push)
@@ -8,9 +9,14 @@
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace std;
 
-#define ENABLE_REACTIVE_FRAMEWORK_4_TEST true
-#define ENABLE_REACTIVE_FRAMEWORK_5_TEST true
+
+#define ENABLE_REACTIVE_FRAMEWORK_4_TEST false
+#define ENABLE_REACTIVE_FRAMEWORK_5_TEST false
 #define ENABLE_REACTIVE_FRAMEWORK_6_TEST false
+#define ENABLE_REACTIVE_FRAMEWORK_7_TEST true
+#define ENABLE_REACTIVE_FRAMEWORK_7_GRAPH_TEST true
+
+
 
 namespace Microsoft
 {
@@ -413,7 +419,7 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestFrom)
 		{
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 
@@ -432,7 +438,7 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestMap)
 		{
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 
@@ -457,7 +463,7 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 
@@ -478,7 +484,7 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 
@@ -499,7 +505,7 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a, b;
 
@@ -520,7 +526,7 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 
@@ -542,7 +548,7 @@ namespace reactive_framework5_unittest
 		{
 			auto PASS_THROUGH = [](int n_) {return n_; };
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 
@@ -602,7 +608,7 @@ namespace reactive_framework5_unittest
 		TEST_METHOD(TestMap)
 		{
 			// + traits
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 			rv<float, id_type> b;
@@ -627,7 +633,7 @@ namespace reactive_framework5_unittest
 		TEST_METHOD(TestMapTo)
 		{
 			// + traits
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 
@@ -652,7 +658,7 @@ namespace reactive_framework5_unittest
 			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
 			
 			
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<int, id_type> a;
 			rv<float, id_type> b;
@@ -676,7 +682,7 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestSplit)
 		{
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<vector<int>, id_type> a;
 			rv<int, id_type> b, c;
@@ -708,7 +714,7 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestSplit2)
 		{
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<vector<int>, id_type> a;
 			rv<int, id_type> b, c;
@@ -752,7 +758,7 @@ namespace reactive_framework5_unittest
 
 		TEST_METHOD(TestSplitOverIndexing)
 		{
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 
 			rv<vector<int>, id_type> a;
 			rv<int, id_type> b, c, d;
@@ -782,7 +788,7 @@ namespace reactive_framework5_unittest
 			rv<int, id_type> a, b;
 			rv<vector<int>, id_type> c;
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 			rvc.merge
 			(
 				rvc.from(a),
@@ -809,7 +815,7 @@ namespace reactive_framework5_unittest
 			rv<int, id_type> a, b, c, d;
 			rv<vector<int>, id_type> e;
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 			rvc.merge
 			(
 				rvc.from(a),
@@ -843,7 +849,7 @@ namespace reactive_framework5_unittest
 			rv<char, id_type> b;
 			rv<tuple<float, char>, id_type> c;
 
-			reactive_context<id_type> rvc;
+			reactive_context rvc;
 			rvc.join
 				(
 					rvc.from(a),
@@ -889,7 +895,7 @@ namespace reactive_framework5_unittest
 
 			make_selector(to_int, 0);
 
-			reactive_context<id_type> rc;
+			reactive_context rc;
 
 			rv<int, id_type> a;
 			rv<int, id_type> b;
@@ -933,6 +939,8 @@ namespace reactive_framework5_unittest
 #endif
 
 #if ENABLE_REACTIVE_FRAMEWORK_6_TEST
+#include "..\reactive_framework\reactive_framework6.h"
+
 namespace reactive_framework6_unittest
 {
 	using namespace reactive_framework6;
@@ -940,6 +948,137 @@ namespace reactive_framework6_unittest
 	TEST_CLASS(reactove_framework6_test_DSL)
 	{
 	public:
+
+		TEST_METHOD(TestContext)
+		{
+			typedef int id_t;
+			graph<id_t> g;
+
+			typedef rv_context<id_t,
+				node_desc<int>,
+				edge_desc<int, int>,
+				node_desc<int>
+			> context_t;
+
+			context_t context { g };
+
+			auto PASS_THROUGH = [](int n_) -> int
+			{
+				return n_;
+			};
+
+			auto ptr_n1 = std::make_shared<typed_node<int, id_t>>();
+			auto ptr_n2 = std::make_shared<typed_node<int, id_t>>();
+			auto ptr_edge = std::make_shared<typed_edge<int, int, id_t>>(PASS_THROUGH);
+
+			context.set_src_node(ptr_n1);
+			context.set_edge(ptr_edge);
+			context.set_dst_node(ptr_n2);
+
+			bool success = context.try_apply();
+
+			Assert::IsTrue(success, L"build from context has failed");
+		}
+
+		TEST_METHOD(TestFromBuilderType)
+		{
+			reactive_context<int> rc;
+			rv<int, int> a;
+
+			typedef rv_context<int,
+					node_desc<int>,
+					null_edge_desc,
+					null_node_desc
+				> expected_context_t;
+
+			typedef rv_builder<expected_context_t> expected_builder_t;
+			
+			auto builder = rc.from(a);
+			
+			typedef decltype(builder) builder_t;
+			typedef builder_t::context_type context_t;
+
+			static_assert(std::is_same<context_t, expected_context_t>::value, "type mismatch");
+			static_assert(std::is_same<builder_t, expected_builder_t>::value, "type mismatch");
+		}
+
+		TEST_METHOD(TestClosedType)
+		{
+			reactive_context<int> rc;
+			rv<int, int> a, b;
+
+			typedef rv_context<int,
+				node_desc<int>,
+				null_edge_desc,
+				null_node_desc
+			> expected_context_t;
+
+			typedef rv_builder<expected_context_t> expected_builder_t;
+
+			auto PASS_THROUGH = [](int n_) -> int
+			{
+				return n_;
+			};
+
+			auto builder = rc.from(a).map(PASS_THROUGH).hidden_node();
+
+			typedef decltype(builder) builder_t;
+			typedef builder_t::context_type context_t;
+
+			static_assert(std::is_same<context_t, expected_context_t>::value, "type mismatch");
+			static_assert(std::is_same<builder_t, expected_builder_t>::value, "type mismatch");
+		}
+
+		TEST_METHOD(TestMerge)
+		{
+			reactive_context<int> rc;
+			rv<int, int> a, b;
+
+			typedef rv_context<int, node_desc<int>, null_edge_desc, null_node_desc> src_context_t;
+
+			typedef rv_builder<src_context_t> src_builder_t;
+
+			src_context_t c1 { rc.get_graph() }, c2 { rc.get_graph() };
+
+			src_builder_t b1 { c1, rc }, b2 { c2, rc };
+
+			//
+			typedef rv_context<int,
+				dyn_multi_node_desc<int>,
+				dyn_multi_edge_desc<int, int>,	// vec<A> ->vec<B>
+				null_node_desc
+			> expected_context_t;
+
+			typedef rv_builder<expected_context_t> expected_builder_t;
+
+			auto builder = rc.merge(b1, b2);
+
+			typedef decltype(builder) builder_t;
+			typedef builder_t::context_type context_t;
+
+			static_assert(std::is_same<context_t, expected_context_t>::value, "type mismatch");
+			static_assert(std::is_same<builder_t, expected_builder_t>::value, "type mismatch");
+		}
+
+		TEST_METHOD(TestHiddoneNodeSmoke)
+		{
+			auto PASS_THROUGH = [](int n_) -> int
+			{
+				return n_;
+			};
+
+			rv<int, int> a, b;
+
+			reactive_context<int> rc;
+
+			auto b1 = rc.from(a).map(PASS_THROUGH).hidden_node();
+
+			//auto ptr_src_rv = b1.context().src_rv();
+			//Assert::IsTrue(ptr_src_rv.expired(), L"It must be null since this rv was a temporary variable");
+			
+			b1.map(PASS_THROUGH).into(b);
+		}
+
 		TEST_METHOD(TestDSL)
 		{
 			auto PASS_THROUGH = [](int n_) -> int
@@ -949,14 +1088,14 @@ namespace reactive_framework6_unittest
 
 			rv<int, int> a, b;
 
-			reactive_context2<int> rc;
+			reactive_context<int> rc;
 
 			rc.from(a).map(PASS_THROUGH).into(b);
 			rv<int, int> c{ rc.from(a).map(PASS_THROUGH).to() };
 
-			rc.from(a).map(PASS_THROUGH).map(PASS_THROUGH).into(b);
+			rc.from(a).map(PASS_THROUGH).hidden_node().map(PASS_THROUGH).into(b);
 
-			rc.from(a).map(PASS_THROUGH).map(PASS_THROUGH).into(b);
+			rc.from(a).map(PASS_THROUGH).hidden_node().map(PASS_THROUGH).into(b);
 
 
 			auto VEC_PASS_THROUGH = [](std::vector<int> n_)
@@ -964,19 +1103,823 @@ namespace reactive_framework6_unittest
 				return n_;
 			};
 
-			rc.merge(
-				rc.from(a),
-				rc.from(b)
-				).map(VEC_PASS_THROUGH);
+			typedef rv_context<int, dyn_multi_node_desc<int>, dyn_multi_edge_desc<int, int>> rv_context_t;
+			typedef rv_context<int, node_desc<int>> rv_context_sub_t;
+			typedef rv_builder<rv_context_t> rb_t;
+			typedef rv_builder<rv_context_sub_t> rb_sub_t;
 
+			//graph<int> g;
+			//rb_t rb { rv_context_t { g }, rc};
+			//rb_sub_t rb_sub2 { rv_context_sub_t{ g }, rc};
+
+			//rb_t rb2 = rc.merge(rb_sub2);
+			
 			rc.merge(
-				rc.from(a).map(PASS_THROUGH),
+				rc.from(a).map(PASS_THROUGH).hidden_node(),
 				rc.from(b)
-				).map(VEC_PASS_THROUGH);
+				);
 		}
 	};
 
+	TEST_CLASS(reactive_framework6_high_level_unittest)
+	{
+	public:
+		typedef int id_type;
+
+		TEST_METHOD(TestMap)
+		{
+			// + traits
+			reactive_context rvc;
+
+			rv<int, id_type> a;
+			rv<float, id_type> b;
+
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+			rvc
+				.from(a)
+				.map(MAP_FUNC)
+				.into(b)
+				;
+
+			// int -> float
+
+			a = 5;
+			const float expected_value = MAP_FUNC(5);
+			const float given_value = b;
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestMapTo)
+		{
+			// + traits
+			reactive_context rvc;
+
+			rv<int, id_type> a;
+
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+			auto b = rvc
+				.from(a)
+				.map(MAP_FUNC)
+				.to();
+
+			// int -> float
+
+			a = 5;
+			const float expected_value = MAP_FUNC(5);
+			const float given_value = b;
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestMap2)
+		{
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+
+			reactive_context rvc;
+
+			rv<int, id_type> a;
+			rv<float, id_type> b;
+
+			float given_value;
+
+			b.on_changed.insert(make_pair(0, [&given_value](float v_)
+			{
+				given_value = v_;
+			}));
+
+			rvc.from(a).map(MAP_FUNC).into(b);
+
+			// int -> float
+
+			a = 5;
+			const float expected_value = MAP_FUNC(5);
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestSplit)
+		{
+			reactive_context rvc;
+
+			rv<vector<int>, id_type> a;
+			rv<int, id_type> b, c;
+
+			rvc.from(a).split
+			(
+				rvc.into(b),
+				rvc.into(c)
+			);
+
+			vector<int> v{ 3, 5 };
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+
+			v[0] = 7;
+			a = v;
+
+			int val_of_b2 = b;
+			int val_of_c2 = c;
+
+			Assert::AreEqual(7, val_of_b2);
+			Assert::AreEqual(5, val_of_c2);
+		}
+
+		TEST_METHOD(TestSplit2)
+		{
+			reactive_context rvc;
+
+			rv<vector<int>, id_type> a;
+			rv<int, id_type> b, c;
+
+			rvc.from(a).split
+				(
+					rvc.into(b),
+					rvc.into(c)
+					);
+
+			vector<int> v{ 3, 5 };
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+
+
+			rv<int, id_type> d, e;
+			vector<int> v2{ 11, 17, 101, 49 };
+
+			rvc.from(a).split(
+				rvc.into(d),
+				rvc.into(e)
+				);
+
+			a = v2;
+
+			int val_of_b2 = b;
+			int val_of_c2 = c;
+			int val_of_d2 = d;
+			int val_of_e2 = e;
+
+			Assert::AreEqual(11, val_of_b2);
+			Assert::AreEqual(17, val_of_c2);
+			Assert::AreEqual(101, val_of_d2);
+			Assert::AreEqual(49, val_of_e2);
+		}
+
+		TEST_METHOD(TestSplitOverIndexing)
+		{
+			reactive_context rvc;
+
+			rv<vector<int>, id_type> a;
+			rv<int, id_type> b, c, d;
+
+			rvc.from(a).split
+				(
+					rvc.into(b),
+					rvc.into(c),
+					rvc.into(d)
+					);
+
+			vector<int> v{ 3, 5 };
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+			int val_of_d = d;
+			int undefined_int{};
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+			Assert::AreEqual(undefined_int, val_of_d);
+		}
+
+		TEST_METHOD(TestMerge)
+		{
+			rv<int, id_type> a, b;
+			rv<vector<int>, id_type> c;
+
+			reactive_context rvc;
+
+
+			typedef rv_context<
+				id_type,
+				dyn_multi_node_desc<int>,
+				dyn_multi_edge_desc<int, int>,	// vec<A> ->vec<B>
+				null_node_desc
+			> rv_context_t;
+
+			rvc.merge(
+				rvc.from(a),
+				rvc.from(b)
+			).into(c);
+
+			a = 3;
+			b = 7;
+
+			std::vector<int> val_of_c = c;
+			const std::vector<int> expected_c_value{ 3, 7 };
+			Assert::AreEqual(expected_c_value, val_of_c);
+
+			a = 5;
+			b = 7;
+
+			val_of_c = c;
+			const std::vector<int> expected_c_value2{ 5, 7 };
+			Assert::AreEqual(expected_c_value2, val_of_c);
+		}
+
+		TEST_METHOD(TestMerge2)
+		{
+			rv<int, id_type> a, b, c, d;
+			rv<vector<int>, id_type> e;
+
+			reactive_context rvc;
+			rvc.merge
+			(
+				rvc.from(a),
+				rvc.from(b)
+			).into(e);
+
+			a = 808;
+			b = 1919;
+
+			std::vector<int> value = e;
+			const std::vector<int> expected_value{ 808, 1919 };
+			Assert::AreEqual(expected_value, value);
+
+			e = std::vector<int>{ 11 };
+
+			rvc.merge(rvc.from(c), rvc.from(d)).into(e);
+
+			a = 51;
+			b = 7;
+			c = 64;
+			d = 1337;
+
+			value = e;
+			const std::vector<int> expected_value2{ 51, 7, 64, 1337 };
+			Assert::AreEqual(expected_value2, value);
+		}
+
+		TEST_METHOD(TestJoinHeterogen)
+		{
+			rv<float, id_type> a;
+			rv<char, id_type> b;
+			rv<tuple<float, char>, id_type> c;
+
+			reactive_context rvc;
+
+			rvc.join
+			(
+				rvc.from(a),
+				rvc.from(b)
+			).into(c);
+
+			a = 4.f;
+			b = 'b';
+
+			tuple<float, char> val_of_c = c;
+			const tuple<float, char> expected_c_value{ 4.f, 'b' };
+			Assert::AreEqual(expected_c_value, val_of_c);
+		}
+
+		TEST_METHOD(TestJoinHomogen)
+		{
+			rv<int, id_type> a;
+			rv<int, id_type> b;
+			rv<tuple<int, int>, id_type> c;
+
+			reactive_context rvc;
+			rvc.join(
+				rvc.from(a),
+				rvc.from(b)
+			).into(c);
+
+			a = 4;
+			b = 5;
+
+			tuple<int, int> val_of_c = c;
+			const tuple<int, int> expected_c_value{ 4, 5 };
+			Assert::AreEqual(expected_c_value, val_of_c);
+		}
+
+		TEST_METHOD(TestCross)
+		{
+			auto to_float = [](int v_) {return static_cast<float>(v_); };
+			auto to_int = [](float v_) {return static_cast<int>(v_); };
+
+			reactive_context rc;
+
+			rv<int, id_type> a;
+			rv<int, id_type> b;
+
+			rv<int, id_type> d;
+			rv<int, id_type> e;
+
+			rv<std::vector<int>, id_type> c;
+
+			std::function<int(std::vector<int>&)> func;
+
+			rc
+				.merge
+				(
+					rc.from(a),
+					rc.from(b)
+					)
+				.into(c);
+
+			rc.from(c)
+				.split
+				(
+					rc.into(d),
+					rc.into(e)
+					);
+
+			a = 3;
+
+			Assert::AreEqual(3, static_cast<int>(d));
+			Assert::AreEqual(0, static_cast<int>(e));
+
+			b = 5;
+
+			Assert::AreEqual(3, static_cast<int>(d));
+			Assert::AreEqual(5, static_cast<int>(e));
+
+			DBGBREAK
+		}
+	};
 }
+#endif
+
+#if ENABLE_REACTIVE_FRAMEWORK_7_TEST
+#include <reactive_framework7\reactive_framework7.h>
+
+
+namespace reactive_framework7_unittest
+{
+	using namespace reactive_framework7;
+
+	//TEST_CLASS(reactove_framework7_test_DSL)
+	//{
+	//public:
+
+	//};
+
+	TEST_CLASS(reactive_framework7_high_level_unittest)
+	{
+	public:
+		typedef int id_type;
+
+		TEST_METHOD(TestMap)
+		{
+			using namespace Utility;
+			default_reactive_context rc;
+
+			// + traits
+			rv<int, id_type> a { rc };
+			rv<float, id_type> b{ rc };
+
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+			//b.on_changed[0] = bind_promise(pr_result);
+
+			a.map(MAP_FUNC).into(b);
+
+			// int -> float
+			a = 5;
+
+			const float expected_value = MAP_FUNC(5);
+			float given_value = b.value();
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestMapTo)
+		{
+			using namespace Utility;
+
+			// + traits
+			default_reactive_context rc;
+
+			rv<int, id_type> a { rc };
+
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+			rv<float, id_type> b{ a.map(MAP_FUNC) };
+
+			// int -> float
+
+			a = 5;
+
+			const float expected_value = MAP_FUNC(5);
+			const float given_value = b;
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestMap2)
+		{
+			using namespace Utility;
+
+			default_reactive_context rc;
+
+			auto MAP_FUNC = [](int n_) {return static_cast<float>(n_); };
+
+			rv<int> a { rc };
+			rv<float> b { rc };
+
+			a.map(MAP_FUNC).into(b);
+
+			float given_value;
+			b.on_changed.insert(make_pair(0, [&given_value](float v_)
+			{
+				given_value = v_;
+			}));
+
+
+			// int -> float
+
+			a = 5;
+
+			const float expected_value = MAP_FUNC(5);
+
+			Assert::AreEqual(expected_value, given_value);
+		}
+
+		TEST_METHOD(TestSplit)
+		{
+			using namespace std;
+			using namespace std::placeholders;
+
+			default_reactive_context rc;
+
+			rv<vector<int>> a { rc };
+			rv<int> b { rc }, c { rc };
+
+			auto selector = [](vector<int> vec_, size_t i_) { return (vec_.size() > i_) ? vec_[i_] : 0; };
+
+			a.map<int>(bind(selector, _1, 0)).into(b);
+			a.map<int>(bind(selector, _1, 1)).into(c);
+
+			vector<int> v{ 3, 5 };
+
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+
+			v[0] = 7;
+			a = v;
+
+			int val_of_b2 = b;
+			int val_of_c2 = c;
+
+			Assert::AreEqual(7, val_of_b2);
+			Assert::AreEqual(5, val_of_c2);
+		}
+
+		TEST_METHOD(TestSplit2)
+		{
+			using namespace std;
+			using namespace std::placeholders;
+
+			auto selector = [](vector<int> vec_, size_t i_) { return (vec_.size() > i_) ? vec_[i_] : 0; };
+
+			default_reactive_context rc;
+			rv<vector<int>> a { rc };
+
+			auto b = a.map<int>(bind(selector, _1, 0));
+			auto c = a.map<int>(bind(selector, _1, 1));
+
+			vector<int> v{ 3, 5 };
+			a = v;
+
+			int val_of_b = b;
+			int val_of_c = c;
+
+			Assert::AreEqual(3, val_of_b);
+			Assert::AreEqual(5, val_of_c);
+
+
+			vector<int> v2{ 11, 17, 101, 49 };
+
+			auto d = a.map<int>(bind(selector, _1, 2));
+			auto e = a.map<int>(bind(selector, _1, 3));
+
+			a = v2;
+
+			int val_of_b2 = b;
+			int val_of_c2 = c;
+			int val_of_d2 = d;
+			int val_of_e2 = e;
+
+			Assert::AreEqual(11, val_of_b2);
+			Assert::AreEqual(17, val_of_c2);
+			Assert::AreEqual(101, val_of_d2);
+			Assert::AreEqual(49, val_of_e2);
+		}
+
+		TEST_METHOD(TestMerge)
+		{
+			using namespace std;
+
+			default_reactive_context rc;
+			rv<int> a { rc }, b { rc };
+
+			rv<vector<int>, id_type> c
+			{
+				zip([](int a_, int b_)
+				{
+					return vector<int> { a_, b_ };
+				}, a, b)
+			};
+
+			a = 3;
+			b = 7;
+
+			std::vector<int> val_of_c = c;
+			const std::vector<int> expected_c_value{ 3, 7 };
+			Assert::AreEqual(expected_c_value, val_of_c);
+
+			a = 5;
+			b = 7;
+
+			val_of_c = c;
+			const std::vector<int> expected_c_value2{ 5, 7 };
+			Assert::AreEqual(expected_c_value2, val_of_c);
+		}
+
+		TEST_METHOD(TestMerge2)
+		{
+			using namespace std;
+
+			default_reactive_context rc;
+			rv<int> a { rc }, b { rc }, c { rc }, d { rc };
+
+			auto e = zip([](int a_, int b_) { return vector<int> { a_, b_ }; }, a, b);
+
+			a = 808;
+			b = 1919;
+
+			std::vector<int> value = e;
+			const std::vector<int> expected_value{ 808, 1919 };
+			Assert::AreEqual(expected_value, value);
+
+			e = std::vector<int>{ 11 };
+
+			auto f = zip([](vector<int> e_, int a_, int b_)
+			{
+				vector<int> res{ a_, b_ };
+				res.insert(res.begin(), e_.begin(), e_.end());
+				return res;
+			}, e, c, d);
+
+			a = 51;
+			b = 7;
+			c = 64;
+			d = 1337;
+
+			value = f;
+			const std::vector<int> expected_value2{ 51, 7, 64, 1337 };
+			Assert::AreEqual(expected_value2, value);
+		}
+
+		TEST_METHOD(TestJoinHeterogen)
+		{
+			default_reactive_context rc;
+
+			rv<float, id_type> a { rc };
+			rv<char, id_type> b { rc };
+
+			auto c = zip(make_tuple<float, char>, a, b);
+
+			a = 4.f;
+			b = 'b';
+
+			tuple<float, char> val_of_c = c;
+			const tuple<float, char> expected_c_value{ 4.f, 'b' };
+			Assert::AreEqual(expected_c_value, val_of_c);
+		}
+
+		TEST_METHOD(TestJoinHomogen)
+		{
+			default_reactive_context rc;
+
+			rv<int> a { rc };
+			rv<int> b{ rc };
+			rv<tuple<int, int>> c { rc };
+
+			zip(make_tuple<int, int>, a, b).into(c);
+
+			a = 4;
+			b = 5;
+
+			tuple<int, int> val_of_c = c;
+			const tuple<int, int> expected_c_value{ 4, 5 };
+			Assert::AreEqual(expected_c_value, val_of_c);
+		}
+
+		TEST_METHOD(TestChaining)
+		{
+			default_reactive_context rc;
+			rv<int> a { rc };
+
+			auto inc = [](int n_)
+			{
+				return n_ + 1;
+			};
+
+			auto b = a.map(inc);
+			auto c = b.map(inc);
+
+			int cb_value_of_b = -1;
+			int cb_value_of_c = -1;
+
+			bool b_was_updated = false, c_was_updated = false;
+			b.on_changed[0] = [&](int n_) { b_was_updated = true; cb_value_of_b = n_; };
+			c.on_changed[0] = [&](int n_) { c_was_updated = true; cb_value_of_c = n_; };
+
+			a = 1;
+
+			Assert::IsTrue(b_was_updated);
+			Assert::IsTrue(c_was_updated);
+
+			Assert::AreEqual(2, cb_value_of_b);
+			Assert::AreEqual(3, cb_value_of_c);
+
+			int value_of_b = b;
+			int value_of_c = c;
+
+			Assert::AreEqual(2, value_of_b);
+			Assert::AreEqual(3, value_of_c);
+		}
+
+		TEST_METHOD(TestLoop)
+		{
+			default_reactive_context rc;
+			rc.policy().set_max_single_chain_recompute(9);
+
+			rv<int, id_type> a { rc };
+
+			auto inc = [](int n_)
+			{
+				return n_ + 1;
+			};
+
+			auto pass_throught = [](int n_) { return n_; };
+
+			auto b = a.map(inc);
+			b.into(a);
+
+			//
+			std::vector<int> values_of_a, values_of_b;
+
+			a.on_changed[0] = [&](int n_)
+			{
+				values_of_a.push_back(n_);
+			};
+
+			b.on_changed[0] = [&](int n_)
+			{
+				values_of_b.push_back(n_);
+			};
+
+			//
+			a = 1;
+
+			const std::vector<int> expected_values_of_a{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+			const std::vector<int> expected_values_of_b{ 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+			Assert::AreEqual(expected_values_of_a, values_of_a);
+			Assert::AreEqual(expected_values_of_b, values_of_b);
+		}
+
+		TEST_METHOD(TestBridgeNodes)
+		{
+			auto MAP_FUNC = [](int n_)
+			{
+				return n_ + 1;
+			};
+
+			default_reactive_context rc;
+			rv<int> a { rc }, c { rc };
+
+			// sub scope
+			{
+				rv<int> b = a.map(MAP_FUNC);
+			
+				c = b.map(MAP_FUNC);
+			}
+
+			a = 1;
+
+			const int expected_c_value = 3;
+			const int c_value = c;
+
+			Assert::AreEqual(expected_c_value, c_value);
+		}
+
+		TEST_METHOD(TestChainPreSet)
+		{
+			auto MAP_FUNC = [](int n_)
+			{
+				return n_ + 1;
+			};
+
+			default_reactive_context rc;
+
+			rv<int> a{ rc };
+
+			a = 1;
+
+			rv<int> b = a.map(MAP_FUNC);
+			rv<int>	c = b.map(MAP_FUNC);
+
+			const int expected_b_value = 2;
+			const int b_value = b;
+
+			Assert::AreEqual(expected_b_value, b_value);
+
+			const int expected_c_value = 3;
+			const int c_value = c;
+
+			Assert::AreEqual(expected_c_value, c_value);
+		}
+	};
+}
+
+#endif
+
+#if 0
+#include "..\reactive_framework\table.h"
+
+namespace utility_unittest
+{
+	using namespace utility::sql;
+
+	TEST_CLASS(utility_table_unittest)
+	{
+	public:
+		typedef int id_type;
+
+		TEST_METHOD(TestCreation)
+		{
+		}
+
+		TEST_METHOD(TestSelect)
+		{
+			using namespace std;
+
+			table<int, int, int> tbl1
+			{
+				{ 1, 10, 100 },
+				{ 2, 20, 200 }
+			};
+
+			tbl1.insert({3, 30, 300});
+
+			auto value = tbl1
+				.where(make_value_filter<1>(5))
+				.select(std::index_sequence<0, 1, 2>{});
+		}
+
+		TEST_METHOD(TestSelect2)
+		{
+			using namespace std;
+
+			table<char, float, int> tbl1
+			{
+				{ '1',	1.f,	1 },
+				{ '2',	2.f,	2 },
+				{ '3',	3.f,	3 },
+				{ '4',	4.f,	4 },
+			};
+
+			auto r = tbl1
+				.where(make_range_filter<2>(2, 4))
+				.select<int, char>();
+
+			std::for_each(r.begin(), r.end(), [](row<int, char>)
+			{
+			});
+		}
+	};
+}
+
 #endif
 
 #pragma warning(pop)

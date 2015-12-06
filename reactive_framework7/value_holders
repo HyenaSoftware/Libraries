@@ -1,0 +1,88 @@
+#pragma once
+#include "stdafx.h"
+#include "inode"
+#include "reactive_context7.h"
+
+namespace reactive_framework7
+{
+	namespace detail
+	{
+		struct ireactive_context;
+
+		//
+		template<class T> struct ivalue_holder : public ityped_node<T>
+		{
+			utility::event<> on_changed;
+
+			using ityped_node::ityped_node;
+		};
+
+		//
+		template<class T> class value_holder : public ivalue_holder<T>
+		{
+		public:
+			typedef T value_t;
+
+			value_holder() = delete;
+			value_holder(ireactive_context& rc_)
+				: ivalue_holder { rc_ }
+				//, _ptr_rc { &rc_ }
+			{
+			}
+			value_holder(const value_holder&) = default;
+			value_holder(value_holder&& other_) = default;
+
+			bool set_value_from(inode& node_)
+			{
+				auto& src_node = static_cast<ityped_node<value_t>&>(node_);
+
+				return set_value(src_node.value());
+			}
+
+			bool set_value(value_t value_)
+			{
+				bool updateable = _value != value_;
+
+				if (updateable)
+				{
+					std::swap(_value, value_);
+
+					invalidate();
+				}
+
+				return updateable;
+			}
+
+			void invalidate()
+			{
+				on_changed();
+
+				// it's generic: pull up
+				_rc.on_value_holder_changed(*this);
+			}
+
+			value_t value() const override
+			{
+				return _value;
+			}
+
+			void swap(value_holder& other_)
+			{
+				std::swap(_value, other_._value);
+				//std::swap(_ptr_rc, other_._ptr_rc);
+			}
+
+			void set_output_nodes(std::vector<std::shared_ptr<value_holder<value_t>>> output_nodes_)
+			{
+				swap(_output_nodes, output_nodes_);
+			}
+
+		private:
+			value_t _value;
+			
+			//ireactive_context* _ptr_rc = nullptr;
+
+			std::vector<std::shared_ptr<value_holder<value_t>>> _output_nodes;
+		};
+	}
+}

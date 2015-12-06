@@ -1,0 +1,271 @@
+#pragma once
+#include <type_traits>
+
+namespace Utility
+{
+	template<class A> void swap_if_possible(A& a1_, A& a2_)
+	{
+		std::swap(a1_, a2_);
+	}
+
+	template<class A, class B> typename std::enable_if<!std::is_same<A, B>::value>::type swap_if_possible(A&, B&)
+	{
+		// no op
+	}
+
+	constexpr std::size_t operator "" _sz(unsigned long long n_)
+	{
+		return static_cast<size_t>(n_);
+	}
+
+	template<class T> using static_not = std::integral_constant<bool, !T::value>;
+
+
+
+
+	template<class T, class U, U N> class indexed_type : public std::integral_constant<U, N>
+	{
+		// operator->() cannot be applied to reference types
+		static_assert(NOT std::is_reference<T>::value, "Type T cannot be a reference type.");
+	public:
+		typedef T value_type;
+		typedef U index_type;
+
+		indexed_type() = default;
+		indexed_type(T value_) : _value{std::move(value_)}
+		{
+		}
+
+		indexed_type(const indexed_type&) = default;
+		indexed_type(indexed_type&&) = default;
+
+		void swap(indexed_type& other_)
+		{
+			std::swap(_value, other_._value);
+		}
+
+		indexed_type& operator=(indexed_type other_)
+		{
+			swap(other_);
+
+			return *this;
+		}
+
+		T* operator->()
+		{
+			return &_value;
+		}
+
+		const T* operator->() const
+		{
+			return &_value;
+		}
+
+		T& operator*()
+		{
+			return _value;
+		}
+
+		const T& operator*() const
+		{
+			return _value;
+		}
+
+	private:
+		T _value;
+	};
+
+	/*
+	 *	don't bother T&& arguments: indexed_type can't deal with reference types
+	 */
+	template<class U, U N, class T> auto make_indexed_type(T value_)
+	{
+		return indexed_type<T, U, N>{std::move(value_)};
+	}
+
+	template<class T> struct is_indexed_type : std::false_type {};
+	template<class T, class U, U N> struct is_indexed_type<indexed_type<T, U, N>> : std::true_type {};
+
+	namespace detail
+	{
+		template<class N, N I, class T, class U> struct make_indexed_type_helper;
+
+		template<class N, N I, class T1, class... Ts, class... Us>
+		struct make_indexed_type_helper<N, I, std::tuple<T1, Ts...>, std::tuple<Us...>>
+		{
+			typedef typename make_indexed_type_helper<N, I + 1,
+				std::tuple<Ts...>,
+				std::tuple<Us..., indexed_type<T1, N, I>>
+			>::type type;
+		};
+
+		template<class N, N I, class... Us>
+		struct make_indexed_type_helper<N, I, std::tuple<>, std::tuple<Us...>>
+		{
+			typedef std::tuple<Us...> type;
+		};
+	}
+
+	template<class N, N... Is, class... Ts> auto as_indexed_tuple(std::integer_sequence<N, Is...>, Ts&&... value_)
+	{
+		static_assert(sizeof...(Is) == sizeof...(Ts), "Count of indicies must be matching to count of variadic types.");
+
+		return std::make_tuple(indexed_type<Ts, N, Is>
+		{
+			std::forward<Ts>(value_)
+		}...);
+	}
+		
+	template<class N, N... Is, class... Ts> auto as_indexed_tuple(std::integer_sequence<N, Is...>, std::tuple<Ts...> value_)
+	{
+		static_assert(sizeof...(Is) == sizeof...(Ts), "Count of indicies must be matching to size of the tuple.");
+
+#pragma message(HERE" C4503: If you have an issue with this, then it should be refactored to have an extra arg in lambdas.")
+		return std::make_tuple(indexed_type<Ts, N, Is>
+			{
+				std::get<Is>(value_)
+			} ...);
+	}
+
+	template<class U = size_t, class... Ts> auto as_indexed_tuple(Ts&&... value_)
+	{
+		typedef std::make_integer_sequence<U, sizeof...(Ts)> integer_seq;
+
+		return detail::as_indexed_tuple(integer_seq{}, std::forward<Ts>(value_)...);
+	}
+
+	template<class U = size_t, class... Ts> auto as_indexed_tuple(std::tuple<Ts...> value_)
+	{
+		typedef std::make_integer_sequence<U, sizeof...(Ts)> integer_seq;
+
+		return as_indexed_tuple(integer_seq{}, std::move(value_));
+	}
+
+
+
+	template<class T> struct make_indexed_tuple;
+	template<class... Ts> struct make_indexed_tuple<std::tuple<Ts...>>
+	{
+		typedef typename detail::make_indexed_type_helper<size_t, 0, std::tuple<Ts...>, std::tuple<>>::type type;
+	};
+
+	template<class T> using make_indexed_tuple_t = typename make_indexed_tuple<T>::type;
+
+
+
+	template<template<class...> class C, class T> struct unpack_tuple;
+
+	template<template<class...> class C, class... Ts> struct unpack_tuple<C, std::tuple<Ts...>>
+	{
+		typedef C<Ts...> type;
+	};
+
+	template<template<class...> class C, class T> using unpack_tuple_t = typename unpack_tuple<C, T>::type;
+
+
+	namespace detail
+	{
+		template<size_t N, class T, class F> void apply_visitor_apply_func(T& tpl_, F func_)
+		{
+			func_(std::get<N>(tpl_));
+		}
+
+		template<class T, class F, size_t... Ns>
+			void apply_visitor(T& tpl_, size_t index_, F lambda_, std::index_sequence<Ns...>)
+		{
+			typedef void(FPtr)(T&, F);
+			static FPtr* const func_ptrs[]
+			{
+				&detail::apply_visitor_apply_func<Ns, T, F>...
+			};
+
+			func_ptrs[index_](tpl_, lambda_);
+		}
+	}
+
+	template<class T, class F> std::enable_if_t<is_tuple<T>::value> apply_visitor(T& tpl_, size_t index_, F lambda_)
+	{
+		static constexpr size_t size_of_tuple = std::tuple_size<T>::value;
+
+		detail::apply_visitor(tpl_, index_, lambda_, std::make_index_sequence<size_of_tuple>{});
+	}
+
+	//
+	//	unpack & call
+	//
+	template<class R, class... As> class tuple_arged_function
+	{
+	public:
+		typedef R return_t;
+
+		tuple_arged_function() = default;
+		tuple_arged_function(std::function<return_t(As...)> functor_)
+			: _functor{ std::move(functor_) }
+		{
+		}
+
+		return_t operator()(std::tuple<As...> args_)
+		{
+			constexpr size_t ARGS_COUNT = sizeof...(As);
+
+			typedef std::make_index_sequence<ARGS_COUNT> seq_t;
+
+			return operator()(std::move(args_), seq_t{});
+		}
+
+	private:
+		std::function<return_t(As...)> _functor;
+
+		template<size_t... Is> return_t operator()(std::tuple<As...> args_, std::index_sequence<Is...>)
+		{
+			return _functor(std::get<Is>(args_)...);
+		}
+	};
+
+
+
+	namespace detail
+	{
+		template<class... Ts, class... Us, class F, size_t... Is> std::tuple<Ts...> tuple_transform(std::tuple<Us...> tpl_, F func_, std::index_sequence<Is...>)
+		{
+			typedef std::tuple<Ts...> tuple_t;
+
+			return std::tuple<std::tuple_element_t<Is, tuple_t> ...> { func_(std::get<Is>(tpl_))... };
+		}
+	}
+
+	template<class... Ts, class... Us, class F> std::tuple<Ts...> tuple_transform(std::tuple<Us...> tpl_, F func_)
+	{
+		constexpr size_t ARGS_COUNT = sizeof...(As);
+
+		typedef std::make_index_sequence<ARGS_COUNT> seq_t;
+
+		return detail::tuple_transform<Ts...>(std::move(tpl_), func_, seq_t{});
+	}
+
+
+	namespace detail
+	{
+		template<size_t M, size_t N, class T1> struct make_array_helper
+		{
+			template<class... Ts> auto operator()(T1 value_, Ts... values_) const
+			{
+				return make_array<M, N - 1, T>{ }(value_, value_, values_ ...);
+			}
+		};
+
+		template<size_t M, class T1> struct make_array_helper<M, 0, T1>
+		{
+			template<class... Ts> auto operator()(Ts... values_) const
+			{
+				return std::array<T1, M> { values_... };
+			}
+		};
+	}
+
+	template<size_t N, class T> std::array<T, N> make_array(T value_)
+	{
+		return detail::make_array_helper<N, N, T> { } (value_);
+	}
+
+}

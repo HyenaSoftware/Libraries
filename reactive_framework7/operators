@@ -1,0 +1,118 @@
+#pragma once
+#include "stdafx.h"
+#include "inode"
+#include "utility_ext"
+
+namespace reactive_framework7
+{
+	namespace detail
+	{
+		//
+		template<class R> class rv_operator : public ityped_node<R>
+		{
+		public:
+			typedef R value_t;	// == output
+
+			rv_operator(ireactive_context& rc_, std::shared_ptr<value_holder<value_t>> output_node_, std::function<value_t()> operator_)
+				: ityped_node { rc_ }
+				, _output_node { std::move(output_node_) }
+				, _operator { std::move(operator_) }
+				//, _rc { rc_ }
+			{
+			}
+
+			value_t value() const override
+			{
+				return _val;
+			}
+
+			bool set_value_from(inode& node_) 
+			{
+				// TODO: update args[i] from node_
+				//	greedy args initialization
+
+				auto new_val = _operator();
+				bool updateable = _val != new_val;
+
+				if (updateable)
+				{
+					std::swap(_val, new_val);
+
+					_rc.on_value_holder_changed(*this);
+				}
+
+				return updateable;
+			}
+
+		protected:
+			value_t _val;
+			std::function<value_t()> _operator;
+
+			//ireactive_context& _rc;
+
+			std::shared_ptr<value_holder<value_t>> _output_node;
+		};
+
+
+		//
+		template<class R, class A> class rv_map_operator : public rv_operator<R>
+		{
+			typedef rv_operator<R> base;
+
+		public:
+			rv_map_operator(ireactive_context& rc_, std::shared_ptr<value_holder<value_t>> output_node_, value_holder<A>* input_node_, std::function<R(A)> mapper_)
+				: rv_operator
+				{
+					rc_,
+					std::move(output_node_),
+					[=]
+					{
+						auto val = input_node_->value();
+						
+						return mapper_(val);
+					}
+				}
+			{
+			}
+
+		private:
+		};
+
+
+		//
+		template<class R, class... As> class rv_zip_operator : public rv_operator<R>
+		{
+			typedef std::make_index_sequence<sizeof...(As)> seq_t;
+
+		public:
+
+			rv_zip_operator(ireactive_context& rc_, std::shared_ptr<value_holder<value_t>> output_node_, std::function<R(As...)> mapper_, value_holder<As>* ... input_nodes_)
+				: rv_operator // base ctor
+				{
+					rc_,
+					std::move(output_node_),
+					[=]
+					{
+						auto args = _prepare_input_data(seq_t { });
+
+						return Utility::tuple_arged_function<R, As...> { mapper_ } (args);
+					}
+				}
+				, _input_nodes { input_nodes_ ... }
+			{
+			}
+
+		private:
+			template<size_t I> using elem_t = std::tuple_element_t<I, std::tuple<value_holder<As>* ...>>;
+
+			std::tuple<value_holder<As>* ...> _input_nodes;
+
+			template<size_t... Is> auto _prepare_input_data(std::index_sequence<Is...>)
+			{
+				return std::make_tuple(
+					std::get<Is>(_input_nodes)->value() ...
+					);
+			}
+		};
+	}
+}
