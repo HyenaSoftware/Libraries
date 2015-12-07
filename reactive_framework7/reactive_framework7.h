@@ -188,8 +188,6 @@ namespace reactive_framework7
 			_rc.regist_rv_edge(ptr_op, { value_holder() });
 			_rc.regist_rv_edge(new_rv.value_holder(), { ptr_op });
 
-			_rc.on_value_holder_changed(*_ptr_value_holder);
-
 			return new_rv;
 		}
 
@@ -204,10 +202,6 @@ namespace reactive_framework7
 			_rc.regist_rv_edge(ptr, { value_holder(), rvs_.value_holder()... });
 			_rc.regist_rv_edge(new_rv.value_holder(), { ptr });
 			
-			// it forces to recalculate the operator node
-			// which also fetches the values of rvs_... nodes
-			_rc.on_value_holder_changed(*_ptr_value_holder);
-
 			return new_rv;
 		}
 
@@ -233,14 +227,14 @@ namespace reactive_framework7
 		{
 			using namespace detail;
 
-			_rc.copy_setup(*this, other_rv_);
+			_rc.copy_setup(value_holder(), other_rv_.value_holder());
 
 			//
 			_reset_underlying_callback();
 			other_rv_._reset_underlying_callback();
 
 			// underlying value has been changed so let's update who subscribed to the events of this object
-			_fire();
+			other_rv_._fire();
 		}
 
 	private:
@@ -336,7 +330,7 @@ namespace reactive_framework7
 
 		void regist_rv_edge(std::shared_ptr<detail::inode> dst_, std::initializer_list<std::shared_ptr<detail::inode>> srcs_);
 
-		void copy_setup(const irv& rv_from_, const irv& rv_to_);
+		void copy_setup(std::shared_ptr<detail::inode> rv_from_, std::shared_ptr<detail::inode> rv_to_);
 
 		void on_value_holder_changed(detail::inode& src_node_);
 

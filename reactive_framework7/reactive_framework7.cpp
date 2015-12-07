@@ -21,6 +21,9 @@ namespace reactive_framework7
 	{
 		auto w_id = vertex_id_of(*dst_);
 
+		auto& ref_dst = *dst_;
+		auto& ref_src = **srcs_.begin();
+
 		_vertex_data[w_id].swap(dst_);
 
 		for (auto src : srcs_)
@@ -31,12 +34,14 @@ namespace reactive_framework7
 
 			_vertex_data[v_id] = std::move(src);
 		}
+
+		_update_node_from(ref_dst, ref_src);
 	}
 
-	void abstract_reactive_context::copy_setup(const irv& rv_from_, const irv& rv_to_)
+	void abstract_reactive_context::copy_setup(std::shared_ptr<detail::inode> node_from_, std::shared_ptr<detail::inode> node_to_)
 	{
-		auto from_id = vertex_id_of(*rv_from_.value_holder());
-		auto to_id = vertex_id_of(*rv_to_.value_holder());
+		auto from_id = vertex_id_of(*node_from_);
+		auto to_id = vertex_id_of(*node_to_);
 
 		auto src_nodes = _graph.input_vertices(from_id);
 
@@ -44,8 +49,19 @@ namespace reactive_framework7
 		{
 			_graph.insert({ src_id, to_id });
 
-			_vertex_data[to_id] = rv_to_.value_holder();
+			_vertex_data[to_id] = node_to_;
 		}
+
+		if(src_nodes.empty())
+		{
+			throw runtime_error
+			{
+				HERE"From-node doesn't have any input nodes. This operation might not be valid"
+			};
+		}
+
+		auto& an_src_node = *_vertex_data.at(src_nodes.front());
+		_update_node_from(*node_to_, an_src_node);
 	}
 
 	computation_graph_t::vertex_id_t abstract_reactive_context::vertex_id_of(const detail::inode& holder_)
