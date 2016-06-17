@@ -363,22 +363,10 @@ namespace reactive_framework8
 			}
 		}
 
-		void set_name(std::string name_)
-		{
-			_name.swap(name_);
-		}
-
-		std::string name() const
-		{
-			return _name;
-		}
-
 	//private:
 		std::shared_ptr<underlying_rv<T>> _ptr_impl = std::make_shared<underlying_rv<T>>(*this);
 
 		std::vector<std::function<void(T)>> _subscribes;
-
-		std::string _name { generate_name(*this) };
 	};
 
 

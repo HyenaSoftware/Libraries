@@ -44,11 +44,12 @@ void function_one()
 		rv_context rc;
 
 		rv<int> a, b;
-		rv<int> c = rc.map(add, a, b );
 
-		//a.set_name("a");
-		//b.set_name("b");
-		//c.set_name("c");
+		rc.debugger().set_name(a, "a");
+		rc.debugger().set_name(b, "b");
+
+		rv<int> c = rc.map(add, a, b );
+		rc.debugger().set_name(c, "c");
 
 		c.subscribe([](int v_)
 		{
