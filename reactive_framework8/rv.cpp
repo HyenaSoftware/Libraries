@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "rv"
+#include "rv_debugger.hpp"
 
 using namespace reactive_framework8;
 using namespace std;
@@ -16,13 +17,14 @@ template<class T> weak_ptr<T> as_weak(shared_ptr<T> ptr_)
 
 rv_context::rv_context()
 	: _thread_pool { 10 }
+	, _debugger { make_unique<rv_debugger>() }
 {
 
 }
 
-rv_debugger& rv_context::debugger()
+rv_abstract_debugger& rv_context::debugger()
 {
-	return _debugger;
+	return *_debugger;
 }
 
 utility::thread_pool& rv_context::thread_pool()
@@ -30,7 +32,10 @@ utility::thread_pool& rv_context::thread_pool()
 	return _thread_pool;
 }
 
-
+void rv_context::reset_debugger(std::unique_ptr<rv_abstract_debugger> debugger_)
+{
+	_debugger.swap(debugger_);
+}
 
 
 void function_one()

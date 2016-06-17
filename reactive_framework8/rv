@@ -1,6 +1,6 @@
 #pragma once
 #include "stdafx.h"
-#include "rv_debugger.hpp"
+#include "rv_abstract_debugger.hpp"
 
 namespace reactive_framework8
 {
@@ -427,7 +427,7 @@ namespace reactive_framework8
 
 			utility::for_each(std::make_tuple(rvs_._ptr_impl ...), [=](auto ptr_)
 			{
-				_debugger.add_edge(*ptr_, *op);
+				_debugger->add_edge(*ptr_, *op);
 				ptr_->assign(op);
 				ptr_->assign(*this);
 			});
@@ -435,14 +435,16 @@ namespace reactive_framework8
 			return { *this, op };
 		}
 
-		rv_debugger& debugger();
+		rv_abstract_debugger& debugger();
+
+		void reset_debugger(std::unique_ptr<rv_abstract_debugger>);
 
 		utility::thread_pool& thread_pool();
 
 	private:
 		//	1st - allocation 
 		//	2nd - deallocation - make sure no other thread keep locked its mutex
-		rv_debugger _debugger;
+		std::unique_ptr<rv_abstract_debugger> _debugger;
 
 		//	2nd - allocation
 		//	1st - deallocation - terminate running threads

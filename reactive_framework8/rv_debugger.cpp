@@ -1,16 +1,8 @@
 #include "stdafx.h"
 #include "rv_debugger.hpp"
 
-
-
 using namespace reactive_framework8;
 using namespace std;
-
-
-const std::unordered_map<E_DEBUGGER_EVENT, std::string> reactive_framework8::DEBUGGER_EVENT_TO_STRING
-{
-	{ E_DEBUGGER_EVENT::NODE_VALUE_CHANGED, "node value has changed" }
-};
 
 namespace std
 {
@@ -32,7 +24,16 @@ void rv_debugger::notify(E_DEBUGGER_EVENT event_, string rv_name_, string value_
 	cout << event_ << ": " << rv_name_ << " to " << value_ <<endl;
 }
 
-void rv_debugger::set_name(void* ptr_urv_, string rv_name_)
+
+void rv_debugger::add_edge(rv_abstract_operator& op_, void* ptr_, std::type_index ti_)
 {
-	_urv_to_name.insert({ ptr_urv_, move(rv_name_) });
+	std::lock_guard<std::mutex> l{ _mtx_print };
+	std::cout << "new edge: " << name_of(ptr_, ti_) << " -> " << typeid(op_).name() << endl;
+}
+
+
+void rv_debugger::add_edge(void* ptr_, std::type_index ti_, rv_abstract_operator& op_)
+{
+	std::lock_guard<std::mutex> l{ _mtx_print };
+	std::cout << "new edge: " << ti_.name() << " -> " << name_of(ptr_, ti_) << endl;
 }

@@ -142,16 +142,20 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="rv_abstract_debugger.hpp" />
     <ClInclude Include="rv" />
     <ClInclude Include="rv_debugger.hpp" />
+    <ClInclude Include="rv_remote_debugger.hpp" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="extern_libs.cpp" />
+    <ClCompile Include="rv_abstract_debugger.cpp" />
     <ClCompile Include="reactive_framework8.cpp" />
     <ClCompile Include="rv.cpp" />
     <ClCompile Include="rv_debugger.cpp" />
+    <ClCompile Include="rv_remote_debugger.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
