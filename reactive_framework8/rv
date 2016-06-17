@@ -82,22 +82,19 @@ namespace reactive_framework8
 
 			std::tuple<std::weak_ptr<underlying_rv<Us>>...> _input_nodes;
 
-			template<size_t N> auto& _get()
-			{
-				return std::get<N>(_input_nodes).lock()->value();
-			}
+			typedef std::tuple<Us...> input_values_t;
 
-			template<size_t... Ns> bool _is_ready(std::index_sequence<Ns...>)
+			template<size_t... Ns>  boost::optional<input_values_t> get_inputs(std::index_sequence<Ns...>)
 			{
-				bool any_expired = or(std::get<Ns>(_input_nodes).expired()...);
-				if (any_expired)
-				{
-					return false;
-				}
-
 				auto locked_inputs = std::make_tuple(std::get<Ns>(_input_nodes).lock()...);
 
-				return and(std::get<Ns>(locked_inputs)->value().is_initialized()...);
+				bool any_expired = or(std::get<Ns>(locked_inputs) == nullptr...);
+
+				bool all_valid = !any_expired && and(std::get<Ns>(locked_inputs)->value().is_initialized()...);
+
+				if(!all_valid) return { };
+
+				return make_tuple(std::get<Ns>(locked_inputs)->value().get()...);
 			}
 		};
 
@@ -110,18 +107,13 @@ namespace reactive_framework8
 
 			std::weak_ptr<underlying_rv<T>> _input_nodes;
 
-			auto& _get()
+			boost::optional<T> get_input()
 			{
-				std::lock_guard<std::mutex> lock{ _weak_ptr_lock };
+				auto ptr = _input_nodes.lock();
 
-				return _input_nodes.lock()->value();
-			}
+				bool is_valid = ptr && ptr->value().is_initialized();
 
-			bool _is_ready()
-			{
-				std::lock_guard<std::mutex> lock{ _weak_ptr_lock };
-
-				return _input_nodes.lock()->value().is_initialized();
+				return boost::make_optional(is_valid, ptr->get());
 			}
 		};
 
@@ -139,9 +131,11 @@ namespace reactive_framework8
 			{
 				for (auto& out : _output_nodes)
 				{
-					auto& node = *out.lock();
-
-					node << value_;
+					auto ptr_node = out.lock();
+					if(ptr_node)
+					{
+						*ptr_node << value_;
+					}
 				}
 			}
 		};
@@ -166,19 +160,20 @@ namespace reactive_framework8
 		{
 			std::index_sequence_for<Us...> seq;
 
-			if (_is_ready(seq))
+			auto inps = get_inputs(seq);
+
+			if(inps)
 			{
-				// thread_pool.submit([] { _apply(seq); });
-				_apply(seq);
+				_apply(*inps, seq);
 			}
 		}
 
 	private:
 		const std::function<R(Us...)> _function;
 
-		template<size_t... Ns> void _apply(std::index_sequence<Ns...>)
+		template<size_t... Ns> void _apply(input_values_t& inputs_, std::index_sequence<Ns...>)
 		{
-			auto val = _function(*_get<Ns>()...);
+			auto val = _function(std::get<Ns>(inputs_)...);
 
 			_send(std::move(val));
 		}
@@ -234,8 +229,9 @@ namespace reactive_framework8
 		void wake_up() override
 		{
 			// filter R == T
-			auto val = _get();
-			bool keep = _function(val);
+
+			auto val = get_input();
+			bool keep = val && _function(val);
 			if (keep)
 			{
 				_send(std::move(val));
