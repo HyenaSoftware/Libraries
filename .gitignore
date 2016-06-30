@@ -46,6 +46,14 @@ build/
 *.log
 *.scc
 
+# VS sometimes forget to check the status of the repo
+# According to stackoverflow it helps.
+# http://stackoverflow.com/questions/28454746/visual-studio-tfs-git-not-seeing-any-changes
+# git add -u . also does the work
+# 
+*.VC.opendb
+*.VC.db
+
 # Visual C++ cache files
 ipch/
 *.aps
