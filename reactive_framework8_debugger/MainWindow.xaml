@@ -1,0 +1,28 @@
+﻿<Window x:Class="reactive_framework8_debugger.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:reactive_framework8_debugger"
+		xmlns:zoom="clr-namespace:WPFExtensions.Controls;assembly=WPFExtensions"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="600" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Height="Auto" Background="Black">
+            <!--TextBox x:Name="textBox" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" Text="{Binding Path=Text, Mode=TwoWay}" VerticalAlignment="Top" Width="120" Margin="5,5,5,5" / -->
+            <ComboBox ItemsSource="{Binding LayoutAlgorithmTypes}" SelectedItem="{Binding Path=LayoutAlgorithmType, Mode=TwoWay}" Width="150" Height="25" Margin="5" />
+			<Button x:Name="button" Content="Add new vertex" HorizontalAlignment="Stretch" Height="25" Margin="5" Click="button_Click" />
+		</StackPanel>
+		<zoom:ZoomControl  Grid.Row="1"  Zoom="0.2" ZoomBoxOpacity="0.5" Background="#ff656565">
+			<local:DebuggerGraphLayout x:Name="graphLayout" Margin="10"
+						Graph="{Binding Path=Graph}"
+						LayoutAlgorithmType="{Binding Path=LayoutAlgorithmType, Mode=OneWay}"
+						OverlapRemovalAlgorithmType="FSA"
+						HighlightAlgorithmType="Simple" />
+		</zoom:ZoomControl>
+    </Grid>
+</Window>
