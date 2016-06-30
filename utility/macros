@@ -1,0 +1,23 @@
+#pragma once
+#define WINMAIN int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+
+#define SAFE_RELEASE(a)	if((a)!=NULL){(a)->Release();(a)=NULL;}
+#define SAFE_DELETE(a)	if((a)!=NULL){delete (a);(a)=NULL;}
+#define SAFE_DELETE_ARRAY(a)	if((a)!=NULL){delete[] (a);(a)=NULL;}
+
+#define IN
+#define OUT
+#define INOUT
+
+#define NOT !
+#define AND &&
+#define OR	||
+#define XOR !=
+
+#define PAUSE system("pause")
+
+#define DEPRECATED(str) __declspec(deprecated(str))
+
+#define STRING2(x) #x
+#define STRING(x) STRING2(x)
+#define HERE __FILE__"("STRING(__LINE__)"): "

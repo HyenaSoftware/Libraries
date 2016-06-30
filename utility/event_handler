@@ -1,0 +1,122 @@
+#pragma once
+#include <functional>
+#include <memory>
+#include "meta.hpp"
+#include <unordered_map>
+#include <unordered_set>
+#include "Types.hpp"
+#include <sstream>
+
+namespace utility
+{
+	template<class... Ts> class event
+	{
+	public:
+		typedef std::function<void(Ts...)> function_t;
+
+		typedef typename std::unordered_map<uint32_t, function_t>::iterator iterator;
+		typedef typename std::unordered_map<uint32_t, function_t>::const_iterator const_iterator;
+
+		std::pair<iterator, bool> insert(std::pair<uint32_t, function_t> id_and_f_)
+		{
+			return _funcs.insert(std::move(id_and_f_));
+		}
+
+		template<class F> std::enable_if_t<!std::is_same<F, function_t>::value, std::pair<iterator, bool>>
+			insert(std::pair<uint32_t, F> id_and_f_)
+		{
+			return insert(
+			{
+				id_and_f_.first,
+				function_t{id_and_f_.second}
+			});
+		}
+
+		size_t erase(uint32_t id_)
+		{
+			return _funcs.erase(id_);
+		}
+
+		iterator find(uint32_t t_)
+		{
+			return _funcs.find(t_)
+		}
+
+		const_iterator find(uint32_t t_) const
+		{
+			return _funcs.find(t_)
+		}
+
+		iterator begin()
+		{
+			return _funcs.begin();
+		}
+
+		const_iterator begin() const
+		{
+			return _funcs.begin();
+		}
+
+		iterator end()
+		{
+			return _funcs.end();
+		}
+
+		const_iterator end() const
+		{
+			return _funcs.end();
+		}
+
+		function_t& operator[](uint32_t id_)
+		{
+			return _funcs[id_];
+		}
+
+		void swap(event& e_)
+		{
+			_invalid_ids.swap(e_._invalid_ids);
+			_funcs.swap(e_._funcs);
+		}
+
+		void operator()(Ts... args_)
+		{
+			_trigger_funcs(args_...);		// copy args
+			
+			// do some cleanup
+			_cleanup();
+		}
+	private:
+		std::unordered_set<uint32_t> _invalid_ids;
+
+		std::unordered_map<uint32_t, function_t> _funcs;
+
+		void _trigger_funcs(Ts... args_)
+		{
+			for (auto& f : _funcs)
+			{
+				try
+				{
+					f.second(args_...);	// copy args
+				}
+				catch (std::bad_function_call&)
+				{
+					_invalid_ids.insert(f.first);
+				}
+			}
+		}
+		void _cleanup()
+		{
+			for (auto id : _invalid_ids)
+			{
+				_funcs.erase(id);
+			}
+
+			_invalid_ids.clear();
+		}
+	};
+
+
+	template<> class event<void> : public event<>
+	{
+	};
+}

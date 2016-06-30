@@ -1,0 +1,215 @@
+#pragma once
+#include "stdafx.h"
+#include "macros"
+#include "types.hpp"
+#include "point"
+
+namespace utility
+{
+	enum E_RECT_SIDE : byte
+	{
+		RECT_SIDE_LEFT	= 1,
+		RECT_SIDE_RIGHT	= 2,
+		RECT_SIDE_BOTTOM	= 4,
+		RECT_SIDE_TOP		= 8,
+
+		RECT_SIDE_HORIZONTAL_CENTER		= RECT_SIDE_LEFT | RECT_SIDE_RIGHT,
+		RECT_SIDE_VERTICAL_CENTER		= RECT_SIDE_TOP | RECT_SIDE_BOTTOM,
+
+	};
+
+	enum : byte
+	{
+		RECT_SIDE_NONE = 0,
+		RECT_SIDE_HORIZONTAL_MASK	= RECT_SIDE_HORIZONTAL_CENTER,
+		RECT_SIDE_VERTICAL_MASK		= RECT_SIDE_VERTICAL_CENTER,
+	};
+
+
+	//
+	//	left < right
+	//	top < bottom
+	//
+
+	template<class T> struct rect
+	{
+	public:
+		typedef T value_t;
+
+		//
+		value_t left, right, bottom, top;
+
+		constexpr rect() = default;
+
+		constexpr rect(math::point<T> left_top_corner_, math::point<T> right_bottom_corner_)
+			: left { left_top_corner_.x }
+			, top { left_top_corner_.y }
+			, right { right_bottom_corner_.x }
+			, bottom{ right_bottom_corner_.y }
+		{
+		}
+
+		constexpr rect(value_t left_, value_t right_, value_t top_, value_t bottom_)
+			: left { left_ }
+			, right { right_ }
+			, top { top_ }
+			, bottom { bottom_ }
+		{
+		}
+
+		constexpr value_t height() const
+		{
+			return bottom - top;
+		}
+
+		constexpr value_t width() const
+		{
+			return right - left;
+		}
+
+		//
+		math::point<value_t> left_top_corner() const
+		{
+			return math::make_point(left, top);
+		}
+
+		math::point<value_t> left_bottom_corner() const
+		{
+			return math::make_point(left, bottom);
+		}
+
+		math::point<value_t> right_top_corner() const
+		{
+			return math::make_point(right, top);
+		}
+
+		math::point<value_t> right_bottom_corner() const
+		{
+			return math::make_point(right, bottom);
+		}
+
+		//
+		auto center() const
+		{
+			auto v = diagonal_vec() * .5f;
+			
+			math::vector<value_t> w
+			{
+				static_cast<value_t>(round(v.x)),
+				static_cast<value_t>(round(v.y))
+			};
+
+			return left_top_corner() + w;
+		}
+
+		value_t area() const
+		{
+			auto v = diagonal_vec();
+
+			return v.x * v.y;
+		}
+
+		constexpr math::size<value_t> size() const
+		{
+			return { width(), height() };
+		}
+
+		//
+		auto operator[](byte masked_side_) const
+		{
+			return make_point(
+				_at(masked_side_ & RECT_SIDE_HORIZONTAL_MASK),
+				_at(masked_side_ & RECT_SIDE_VERTICAL_MASK),
+				);
+		}
+
+		value_t& operator[](E_RECT_SIDE side_)
+		{
+			switch (side_)
+			{
+			case RECT_SIDE_LEFT:				return left;
+			case RECT_SIDE_RIGHT:				return right;
+			case RECT_SIDE_TOP:					return top;
+			case RECT_SIDE_BOTTOM:				return bottom;
+			}
+
+			throw runtime_error { HERE };
+		}
+
+		const value_t& operator[](E_RECT_SIDE side_) const
+		{
+			switch (side_)
+			{
+			case RECT_SIDE_LEFT:				return left;
+			case RECT_SIDE_RIGHT:				return right;
+			case RECT_SIDE_TOP:					return top;
+			case RECT_SIDE_BOTTOM:				return bottom;
+			}
+		}
+
+		//
+		friend auto intersect(const rect& a_, const rect& b_)
+		{
+			auto new_left = std::max(a_.left, b_.left);
+			auto new_right = std::min(a_.right, b_.right);
+
+			auto new_top	= std::max(a_.top, b_.top);
+			auto new_bottom = std::min(a_.bottom, b_.bottom);
+
+			return make_rect(new_left, new_right, new_top, new_bottom);
+		}
+
+		friend constexpr bool operator==(const rect& a_, const rect& b_)
+		{
+			return	(a_.left	== b_.left)
+				&&	(a_.right	== b_.right)
+				&&	(a_.top		== b_.top)
+				&&	(a_.bottom	== b_.bottom);
+		}
+
+		friend constexpr bool operator!=(const rect& a_, const rect& b_)
+		{
+			return (a_.left		!= b_.left)
+				|| (a_.right	!= b_.right)
+				|| (a_.top		!= b_.top)
+				|| (a_.bottom	!= b_.bottom);
+		}
+
+		friend rect<value_t> operator+(const rect<value_t>& rect_, const math::vector<value_t>& vec_)
+		{
+			return make_rect(rect_.left_top_corner() + vec_, rect_.right_bottom_corner() + vec_);
+		}
+
+		//
+		constexpr math::vector<value_t> diagonal_vec() const
+		{
+			return math::make_vector(right, bottom) - math::make_vector(left, top);
+		}
+
+	private:
+		value_t _at(byte masked_side_) const
+		{
+			switch (masked_side_)
+			{
+			case RECT_SIDE_NONE:				return static_cast<value_t>(0);
+			case RECT_SIDE_LEFT:				return left;
+			case RECT_SIDE_RIGHT:				return right;
+			case RECT_SIDE_HORIZONTAL_CENTER:	return static_cast<value_t>(round((right - left) * .5f));
+			case RECT_SIDE_TOP:					return top;
+			case RECT_SIDE_BOTTOM:				return bottom;
+			case RECT_SIDE_VERTICAL_CENTER:		return static_cast<value_t>(round((bottom - top) * .5f));
+			}
+		}
+	};
+
+	template<class T> auto make_rect(math::point<T> left_top_corner_, math::point<T> right_bottom_corner_)
+	{
+		return make_rect(left_top_corner_.x, right_bottom_corner_.x, left_top_corner_.y, right_bottom_corner_.y);
+	}
+
+	template<class T> auto make_rect(T left_, T right_, T top_, T bottom_)
+	{
+		return rect<T> { left_, right_, top_, bottom_ };
+	}
+
+}

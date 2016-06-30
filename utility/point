@@ -1,0 +1,227 @@
+#pragma once
+#include "stdafx.h"
+#include <limits>
+
+namespace utility
+{
+	namespace math
+	{
+		enum E_DIRECTIONS : byte
+		{
+			DIRECTION_HORIZONTAL	= 0,
+			DIRECTION_VERTICAL		= 1,
+		};
+
+		//
+		//
+		//
+		template<class T> struct vector
+		{
+			typedef T value_t;
+
+			value_t x, y;
+
+			constexpr vector() = default;
+			constexpr vector(const vector&) = default;
+			constexpr vector(vector&&) = default;
+
+			constexpr vector(value_t x_, value_t y_) : x { x_ }, y { y_ }
+			{
+			}
+
+			template<class U> constexpr operator vector<U>() const
+			{
+				return{ static_cast<U>(x), static_cast<U>(y) };
+			}
+
+			value_t length(float norm_ = 2.f) const
+			{
+				return pow(pow(x. norm) + pow(y, norm), , 1./norm);
+			}
+
+			constexpr bool operator==(const vector& other_) const
+			{
+				return (x == other_.x) && (y == other_.y);
+			}
+
+			constexpr bool operator!=(const vector& other_) const
+			{
+				return (x != other_.x) || (y != other_.y);
+			}
+
+			constexpr auto operator-() const
+			{
+				return vector { -x, -y };
+			}
+		};
+
+
+		template<class T> constexpr vector<T> make_vector(T x_, T y_)
+		{
+			return vector<T> { x_, y_ };
+		}
+
+		//
+		//	operators for vector
+		//
+		template<class T, class U> constexpr auto operator*(const vector<T>& v_, U u_)
+		{
+			return make_vector(v_.x * u_, v_.y * u_);
+		}
+
+		template<class T, class U> constexpr auto operator*(U u_, const vector<T>& v_)
+		{
+			return make_vector(v_.x * u_, v_.y * u_);
+		}
+
+		template<class T, class U> constexpr auto operator/(const vector<T>& v_, U u_)
+		{
+			return make_vector(v_.x / u_, v_.y / u_);
+		}
+
+		template<class T> constexpr auto operator+(const vector<T>& v_, const vector<T>& u_)
+		{
+			return make_vector(v_.x + u_.y, v_.y + u_.y );
+		}
+
+		template<class T> constexpr auto operator-(const vector<T>& v_, const vector<T>& u_)
+		{
+			return make_vector(v_.x - u_.x, v_.y - u_.y);
+		}
+
+		template<class T, class U> constexpr auto operator*(const vector<T>& v_, const vector<U>& u_)
+		{
+			return (v_.x * u_.y) + (v_.y - u_.y);
+		}
+
+
+		//
+		//
+		//
+		template<class T> struct point
+		{
+			typedef T value_t;
+
+			value_t x, y;
+
+			constexpr point() = default;
+			constexpr point(value_t x_, value_t y_) : x { x_ }, y { y_ }
+			{
+			}
+
+			template<class U> constexpr explicit operator point<U> () const
+			{
+				return { static_cast<U>(x), static_cast<U>(y) };
+			}
+
+			constexpr bool operator==(const point& other_) const
+			{
+				return (x == other_.x) && (y == other_.y);
+			}
+
+			constexpr bool operator!=(const point& other_) const
+			{
+				return (x != other_.x) || (y != other_.y);
+			}
+
+			static constexpr point zero()
+			{
+				return make_point(0, 0);
+			}
+		};
+
+		template<class T> constexpr point<T> make_point(T x_, T y_)
+		{
+			return point<T> { x_, y_ };
+		}
+
+		//
+		//	point and vector
+		//
+		template<class T> constexpr auto operator - (const point<T>& a_, const vector<T>& b_)
+		{
+			return make_vector(a_.x - b_.x, a_.y - b_.y);
+		}
+
+		template<class T> constexpr auto operator + (const point<T>& a_, const vector<T>& b_)
+		{
+			return make_point(a_.x + b_.x, a_.y + b_.y);
+		}
+
+		//
+		//	vector and point 
+		//
+		template<class T> constexpr auto operator - (const vector<T>& a_, const point<T>& b_)
+		{
+			return make_vector(a_.x - b_.x, a_.y - b_.y);
+		}
+
+		template<class T> constexpr auto operator + (const vector<T>& a_, const point<T>& b_)
+		{
+			return make_point(a_.x + b_.x, a_.y + b_.y);
+		}
+
+
+		//
+		//	size
+		//
+		template<class T> struct size
+		{
+			typedef T value_t;
+
+			value_t width, height;
+
+			constexpr size() = default;
+			constexpr size(value_t width_, value_t height_) : width { width_ }, height { height_ }
+			{
+			}
+
+			template<class U> constexpr explicit operator point<U>() const
+			{
+				return { static_cast<U>(width), static_cast<U>(height) };
+			}
+
+			constexpr bool operator==(const size& other_) const
+			{
+				return (width == other_.width) && (height == other_.height);
+			}
+
+			constexpr bool operator!=(const size& other_) const
+			{
+				return (width != other_.width) || (height != other_.height);
+			}
+
+			value_t& operator[](E_DIRECTIONS dir_)
+			{
+				//
+				constexpr value_t size::* ptrs[] { &size::width, &size::height };
+
+				auto index = static_cast<int>(dir_);
+
+				return this->*ptrs[index];
+			}
+
+			constexpr const value_t& operator[](E_DIRECTIONS dir_) const
+			{
+				//
+				constexpr value_t* ptrs[]{ &width, &height };
+
+				auto index = static_cast<int>(dir_);
+
+				return this->*ptrs[index];
+			}
+		};
+
+		//
+		template<class T> constexpr size<T> make_size(T width_, T height_)
+		{
+			return size<T> { width_, height_ };
+		}
+
+		//
+		template<class T> size<T> operator*(const size<T>& sz_, T scale_)
+		{
+			return make_size(sz_.width * scale_, sz_.height * scale_);
+		}
+	}
+}
