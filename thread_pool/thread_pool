@@ -1,0 +1,43 @@
+#pragma once
+#include "stdafx.h"
+
+namespace utility
+{
+	struct thread_pool_impl;
+
+	class thread_pool
+	{
+	public:
+		thread_pool(int count_of_threads_ = 0);
+		thread_pool(const thread_pool&);
+		thread_pool(thread_pool&&);
+
+		~thread_pool();
+
+		thread_pool& operator=(const thread_pool&);
+		thread_pool& operator=(thread_pool&&);
+
+		void swap(thread_pool& other_);
+
+		//
+		//	adds a task to the execution queue
+		//	task_: returns true if it should be execute once more
+		//
+
+		template<class R> std::future<R> _submit(std::function<R()> task_)
+		{
+			std::packaged_task<R> ptask { task_ };
+
+			auto fut = ptask.get_future();
+
+			_submit(std::move(ptask));
+
+			return fut;
+		}
+		void submit(std::function<void()> task_);
+
+	private:
+		std::unique_ptr<thread_pool_impl> _pimpl;
+
+	};
+}
