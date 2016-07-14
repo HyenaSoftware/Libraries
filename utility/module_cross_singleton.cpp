@@ -51,10 +51,11 @@ storage& utility::gl_storage()
 
 		for (auto module : modules)
 		{
-			auto ptr_underlying_storage = GetProcAddress(_singleton_owner_module, "_underlying_storage@0");
+			auto ptr_underlying_storage = GetProcAddress(module, "_underlying_storage@0");
 
 			if (ptr_underlying_storage)
 			{
+				_singleton_owner_module = module;
 				ptr_common_underlying_storage = reinterpret_cast<LPVOID(__stdcall*)()>(ptr_underlying_storage);
 				break;
 			}
