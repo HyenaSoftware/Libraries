@@ -1,50 +1,32 @@
 #pragma once
+#include "stdafx.h"
 
 #undef UNICODE
 
-#define WIN32_LEAN_AND_MEAN
-
-#include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-#pragma comment (lib, "Ws2_32.lib")
-// #pragma comment (lib, "Mswsock.lib")
-
-#include <iostream>
-#include <vector>
-
-
 namespace utility
 {
-	class nistream : std::istream
-	{
-	public:
-	private:
-	};
-
-	class nostream : std::ostream
-	{
-	public:
-	private:
-	};
-
-	class niostream : std::iostream
-	{
-	public:
-	private:
-	};
-
-
-
 	struct desc
 	{
-		size_t buffer_size { 512 };
+		size_t buffer_size;
 		std::string port;
 
-		desc(std::string);
+		desc(std::string, size_t = 512);
+	};
+
+	class end_point
+	{
+	public:
+		end_point(SOCKET, size_t buffer_size_);
+		~end_point();
+
+		size_t read(char* ptr_date_, size_t size_) const;
+		void write(const char* ptr_data_, size_t size_) const;
+
+	protected:
+		SOCKET _socket{ INVALID_SOCKET };
+		size_t _buffer_size;
+
+	private:
 	};
 
 	class server
@@ -53,33 +35,33 @@ namespace utility
 		server(desc);
 		~server();
 
-		std::vector<char> read() const;
-		void write(std::vector<char>) const;
+		/*
+			blocks and try to 
+		*/
+		end_point listening();
 
 	private:
-		SOCKET _client_socket { INVALID_SOCKET };
+		SOCKET _listen_socket { INVALID_SOCKET };
 
-		size_t _buffer_size;
+		addrinfo* _ptr_server_address;
+
 		std::string _port;
+		size_t _buffer_size;
 
-		SOCKET _create_listen_socket() const;
+		std::tuple<SOCKET, addrinfo*> _create_listen_socket() const;
+		SOCKET _listen();
 	};
 
-	class client
+	class client : public end_point
 	{
 	public:
-		client(std::string, desc);
+		client(std::string address_, desc);
 		~client();
 
-		std::vector<char> read() const;
-		void write(std::vector<char>) const;
-
 	private:
-		SOCKET _socket{ INVALID_SOCKET };
-
-		size_t _buffer_size;
 		std::string _port;
 
-		SOCKET _create_socket(std::string) const;
+		static SOCKET _create_socket(std::string address_, std::string port_);
 	};
+
 }

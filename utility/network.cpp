@@ -1,12 +1,40 @@
 #include "stdafx.h"
 #include "network.hpp"
+#include "module_cross_singleton.hpp"
 
 using namespace utility;
 using namespace std;
 
+#pragma comment (lib, "Ws2_32.lib")
+// #pragma comment (lib, "Mswsock.lib")
 
-desc::desc(std::string port_)
+
+class WSAInit : public singleton
+{
+public:
+	WSAInit()
+	{
+		// Initialize Winsock
+		WSADATA wsaData;
+		int	i_result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+		if (i_result != 0)
+		{
+			stringstream sb;
+			sb << "WSAStartup failed with error: " << i_result;
+			throw runtime_error{ sb.str() };
+		}
+	}
+
+	~WSAInit()
+	{
+		WSACleanup();
+	}
+};
+
+
+desc::desc(std::string port_, size_t buffer_size_)
 	: port { move(port_) }
+	, buffer_size { buffer_size_ }
 {
 }
 
@@ -15,188 +43,114 @@ server::server(desc desc_)
 	: _port { move(desc_.port) }
 	, _buffer_size { desc_.buffer_size }
 {
-	_client_socket = _create_listen_socket();
+	// ensure that WSA is initialized
+	// WSACleanup() is called by the dtor of WSAInit at the termiantion of this process
+	gl_storage().get_singleton_of<WSAInit>();
+
+	std::tie(_listen_socket, _ptr_server_address) = _create_listen_socket();
 }
 
 server::~server()
 {
-	int i_result = 0;
-
-	// shutdown the connection since we're done
-	i_result = shutdown(_client_socket, SD_SEND);
-	if (i_result == SOCKET_ERROR)
+	//
+	if (_ptr_server_address)
 	{
-		stringstream sb;
-		sb << "shutdown failed with error: " << WSAGetLastError();
-		
-		// what to do here?
+		freeaddrinfo(_ptr_server_address);
+		_ptr_server_address = nullptr;
 	}
 
-	// cleanup
-	closesocket(_client_socket);
-	WSACleanup();
+	// No longer need server socket
+	if(_listen_socket != INVALID_SOCKET)
+	{
+		closesocket(_listen_socket);
+		_listen_socket = INVALID_SOCKET;
+	}
 }
 
-SOCKET server::_create_listen_socket() const
+std::tuple<SOCKET, addrinfo*> server::_create_listen_socket() const
 {
-	addrinfo *result { nullptr };
 	addrinfo hints;
-
-	int i_result = 0;
-
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = AI_PASSIVE;
 
-	// Initialize Winsock
-	WSADATA wsaData;
-	i_result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (i_result != 0)
-	{
-		stringstream sb;
-		sb << "WSAStartup failed with error: " << i_result;
-		throw runtime_error { sb.str() };
-	}
-
+	addrinfo *ptr_addrinfo { nullptr };
 
 	// Resolve the server address and port
-	i_result = getaddrinfo(NULL, _port.c_str(), &hints, &result);
+	int i_result = getaddrinfo(NULL, _port.c_str(), &hints, &ptr_addrinfo);
 	if (i_result != 0)
 	{
 		stringstream sb;
 		sb << "getaddrinfo failed with error: " << i_result;
 
-		WSACleanup();
-
-		throw runtime_error{ sb.str() };
+		throw runtime_error { sb.str() };
 	}
 
 	// Create a SOCKET for connecting to server
-	auto listen_socket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+	auto listen_socket = socket(ptr_addrinfo->ai_family, ptr_addrinfo->ai_socktype, ptr_addrinfo->ai_protocol);
 	if (listen_socket == INVALID_SOCKET)
 	{
 		stringstream sb;
 		sb << "socket failed with error: " << WSAGetLastError();
 
-		freeaddrinfo(result);
-		WSACleanup();
+		freeaddrinfo(ptr_addrinfo);
 
-		throw runtime_error{ sb.str() };
+		throw runtime_error { sb.str() };
 	}
 
+	return make_tuple(listen_socket, ptr_addrinfo);
+}
+
+SOCKET server::_listen()
+{
 	// Setup the TCP listening socket
-	i_result = ::bind(listen_socket, result->ai_addr, (int)result->ai_addrlen);
+	auto i_result = ::bind(_listen_socket, _ptr_server_address->ai_addr, (int)_ptr_server_address->ai_addrlen);
 	if (i_result == SOCKET_ERROR)
 	{
 		stringstream sb;
 		sb << "bind failed with error: " << WSAGetLastError();
-		freeaddrinfo(result);
-		closesocket(listen_socket);
-		WSACleanup();
 		throw runtime_error{ sb.str() };
 	}
 
-	freeaddrinfo(result);
 
-	i_result = listen(listen_socket, SOMAXCONN);
+	i_result = listen(_listen_socket, SOMAXCONN);
 	if (i_result == SOCKET_ERROR)
 	{
 		stringstream sb;
 		sb << "listen failed with error: " << WSAGetLastError();
-		closesocket(listen_socket);
-		WSACleanup();
 		throw runtime_error{ sb.str() };
 	}
 
 	// Accept a client socket
-	auto client_socket = accept(listen_socket, NULL, NULL);
+	auto client_socket = accept(_listen_socket, NULL, NULL);
 	if (client_socket == INVALID_SOCKET)
 	{
 		stringstream sb;
 		sb << "accept failed with error: " << WSAGetLastError();
-		closesocket(listen_socket);
-		WSACleanup();
 		throw runtime_error{ sb.str() };
 	}
-
-	// No longer need server socket
-	closesocket(listen_socket);
 
 	return client_socket;
 }
 
-vector<char> server::read() const
+end_point server::listening()
 {
-	std::vector<char> buffer, result;
-	buffer.resize(_buffer_size);
-
-	size_t offset = 0;
-
-	while(true)
-	{
-		auto data_size = recv(_client_socket, &buffer[offset], _buffer_size, 0);
-
-		if(data_size == 0)
-			break;
-
-		if (data_size < 0)
-		{
-			int ec = WSAGetLastError();
-
-			char msg_buffer[1024];
-			FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, ec, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), msg_buffer, 1024, NULL);
-
-			stringstream sb;
-			sb << "I/O error: " << msg_buffer << " (" << ec << ")";
-
-			closesocket(_client_socket);
-			WSACleanup();
-			
-			throw runtime_error { sb.str() };
-		}
-
-		result.insert(result.end(), buffer.begin(), buffer.begin() + data_size);
-	}
-
-	return result;
-}
-
-void server::write(vector<char> data_) const
-{
-	for (auto it = data_.begin(); it != data_.end(); )
-	{
-		size_t delta_size = min(data_.end() - it, _buffer_size);
-
-		int i_result = send(_client_socket, &*it, delta_size, 0);
-		if (i_result == SOCKET_ERROR)
-		{
-			stringstream sb;
-			sb << "send failed with error: " << WSAGetLastError();
-			closesocket(_client_socket);
-			WSACleanup();
-			throw runtime_error	{ sb.str() };
-		}
-
-		it += delta_size;
-	}
+	return { _listen(), _buffer_size };
 }
 
 
-client::client(string address_, desc desc_)
-	: _port{ move(desc_.port) }
-	, _buffer_size{ desc_.buffer_size }
+end_point::end_point(SOCKET socket_, size_t buffer_size_)
+	: _socket { socket_ }
+	, _buffer_size { buffer_size_ }
 {
-	_socket = _create_socket(move(address_));
 }
 
-client::~client()
+end_point::~end_point()
 {
-	int i_result = 0;
-
 	// shutdown the connection since we're done
-	i_result = shutdown(_socket, SD_SEND);
+	int i_result = shutdown(_socket, SD_SEND);
 	if (i_result == SOCKET_ERROR)
 	{
 		stringstream sb;
@@ -205,23 +159,65 @@ client::~client()
 		// what to do here?
 	}
 
-	// cleanup
 	closesocket(_socket);
-	WSACleanup();
+	_socket = INVALID_SOCKET;
 }
 
-SOCKET client::_create_socket(string address_) const
+size_t end_point::read(char* ptr_data_, size_t size_) const
 {
-	WSADATA wsaData;
+	// recv won't return with zero (*), it rather waits
+	// if data.size == buffer.size then on the next call it blocks
+	//
+	//	so it's not possible to make difference whenever no more data will be sent or
+	//	the size of the current batch is exactly the size of the buffer
+	//
+	// (*) only when it disconnected
+	auto status_or_size = recv(_socket, ptr_data_, size_, 0);
 
-	// Initialize Winsock
-	int i_result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (i_result != 0)
+	if (status_or_size == SOCKET_ERROR)
+	{
+		int ec = WSAGetLastError();
+
+		char msg_buffer[1024];
+		FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, ec, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), msg_buffer, 1024, NULL);
+
+		stringstream sb;
+		sb << "I/O error: " << msg_buffer << " (" << ec << ")";
+			
+		throw runtime_error { sb.str() };
+	}
+
+	return status_or_size;
+}
+
+void end_point::write(const char* ptr_data_, size_t size_) const
+{
+	int i_result = send(_socket, ptr_data_, size_, 0);
+	if (i_result == SOCKET_ERROR)
 	{
 		stringstream sb;
-		sb << "WSAStartup failed with error: " << i_result;
-		throw runtime_error{ sb.str() };
+		sb << "send failed with error: " << WSAGetLastError();
+
+		throw runtime_error	{ sb.str() };
 	}
+}
+
+
+client::client(string address_, desc desc_)
+	: end_point { _create_socket(move(address_), desc_.port), desc_.buffer_size }
+	, _port { move(desc_.port) }
+{
+}
+
+client::~client()
+{
+}
+
+SOCKET client::_create_socket(string address_, string port_)
+{
+	// ensure that WSA is initialized
+	// WSACleanup() is called by the dtor of WSAInit at the termiantion of this process
+	gl_storage().get_singleton_of<WSAInit>();
 
 	addrinfo *result = nullptr, hints;
 	ZeroMemory(&hints, sizeof(hints));
@@ -230,13 +226,11 @@ SOCKET client::_create_socket(string address_) const
 	hints.ai_protocol = IPPROTO_TCP;
 
 	// Resolve the server address and port
-	i_result = getaddrinfo(address_.c_str(), _port.c_str(), &hints, &result);
+	int i_result = getaddrinfo(address_.c_str(), port_.c_str(), &hints, &result);
 	if (i_result != 0)
 	{
 		stringstream sb;
 		sb << "getaddrinfo failed with error: " << i_result;
-
-		WSACleanup();
 
 		throw runtime_error{ sb.str() };
 	}
@@ -252,8 +246,6 @@ SOCKET client::_create_socket(string address_) const
 		{
 			stringstream sb;
 			sb << "socket failed with error: " << WSAGetLastError();
-
-			WSACleanup();
 
 			throw runtime_error{ sb.str() };
 		}
@@ -274,58 +266,10 @@ SOCKET client::_create_socket(string address_) const
 
 	if (new_sckt == INVALID_SOCKET)
 	{
-		WSACleanup();
 		throw runtime_error{ "Unable to connect to server!" };
 	}
 
 	return new_sckt;
 }
 
-vector<char> client::read() const
-{
-	std::vector<char> buffer;
-	buffer.resize(_buffer_size);
-
-	size_t offset = 0;
-
-	while (true)
-	{
-		auto data_size = recv(_socket, &buffer[offset], _buffer_size, 0);
-
-		if (data_size == 0)
-			return buffer;
-
-		if (data_size < 0)
-		{
-			closesocket(_socket);
-			WSACleanup();
-
-			throw runtime_error{ "I/O error" };
-		}
-
-		offset += data_size;
-		buffer.resize(offset + _buffer_size);
-	}
-}
-
-void client::write(vector<char> data_) const
-{
-	// Send an initial buffer
-	for (auto it = data_.begin(); it != data_.end(); )
-	{
-		size_t delta_size = min(data_.end() - it, _buffer_size);
-
-		int i_result = send(_socket, &*it, delta_size, 0);
-		if (i_result == SOCKET_ERROR)
-		{
-			stringstream sb;
-			sb << "send failed with error: " << WSAGetLastError();
-			closesocket(_socket);
-			WSACleanup();
-			throw runtime_error{ sb.str() };
-		}
-
-		it += delta_size;
-	}
-}
 
