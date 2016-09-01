@@ -47,6 +47,10 @@
     <Reference Include="Microsoft.Contracts">
       <HintPath>..\..\..\..\..\Programs\GraphSharp\Lib\Microsoft.Contracts.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="QuickGraph">
       <HintPath>..\..\..\..\..\Programs\GraphSharp\Lib\QuickGraph.dll</HintPath>
     </Reference>
@@ -73,11 +77,17 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="ViewModel\DebuggerGraphLayout.cs" />
+    <Compile Include="ViewModel\HistoryItem.cs" />
+    <Compile Include="ViewModel\RvGraphHistory.cs" />
     <Compile Include="MainWindow2.cs" />
-    <Compile Include="DebuggerObjects\RvEdge.cs" />
-    <Compile Include="DebuggerObjects\RvGraph.cs" />
-    <Compile Include="DebuggerObjects\RvNodeVertex.cs" />
-    <Compile Include="ViewModel.cs" />
+    <Compile Include="ViewModel\DebuggerObjects\RvEdge.cs" />
+    <Compile Include="ViewModel\DebuggerObjects\RvGraph.cs" />
+    <Compile Include="ViewModel\DebuggerObjects\RvNodeVertex.cs" />
+    <Compile Include="Model\Message.cs" />
+    <Compile Include="Model\Model.cs" />
+    <Compile Include="Model\Network.cs" />
+    <Compile Include="ViewModel\ViewModel.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -109,6 +119,7 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -117,6 +128,19 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\zoidberg.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\Reddot.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\orb_N_green.png" />
+    <Resource Include="Images\orb_O_red.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="View\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

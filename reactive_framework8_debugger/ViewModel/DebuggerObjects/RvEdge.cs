@@ -9,11 +9,13 @@ namespace reactive_framework8_debugger
 
 		public event PropertyChangedEventHandler PropertyChanged;
 
-		public RvEdge(string id, RvNodeVertex source, RvNodeVertex target)
+		public RvEdge(string id_, RvNodeVertex source, RvNodeVertex target)
             : base(source, target)
         {
-			_id = id;
+			_id = id_;
 		}
+
+		public string ID { get { return _id; } }
 
 		public override string ToString()
 		{

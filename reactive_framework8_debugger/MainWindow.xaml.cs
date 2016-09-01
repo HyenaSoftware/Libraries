@@ -29,7 +29,12 @@ namespace reactive_framework8_debugger
 
 		private void button_Click(object sender, RoutedEventArgs e)
 		{
-			_vm.AddVertex();
+			//_vm.TryConnectTo();
+		}
+
+		private void Window_Closed(object sender, EventArgs e)
+		{
+			_vm.Dispose();
 		}
 	}
 }
