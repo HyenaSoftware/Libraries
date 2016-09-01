@@ -134,7 +134,9 @@
   <ItemGroup>
     <ClInclude Include="any.hpp" />
     <ClInclude Include="boost_utils.hpp" />
+    <ClInclude Include="entry_lock.hpp" />
     <ClInclude Include="exception_utils.hpp" />
+    <ClInclude Include="fibers.hpp" />
     <ClInclude Include="graph2.h" />
     <ClInclude Include="hash.hpp" />
     <ClInclude Include="macros" />
@@ -143,6 +145,7 @@
     <ClInclude Include="meta\list.hpp" />
     <ClInclude Include="meta\value_list.h" />
     <ClInclude Include="mirror.h" />
+    <ClInclude Include="module_cross_singleton.hpp" />
     <ClInclude Include="network.hpp" />
     <ClInclude Include="object_ref.hpp" />
     <ClInclude Include="ptr.hpp" />
@@ -155,12 +158,15 @@
     <ClInclude Include="traits.hpp" />
     <ClInclude Include="tuple_utils.hpp" />
     <ClInclude Include="types.hpp" />
+    <ClInclude Include="boolean_operators.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="any.cpp" />
     <ClCompile Include="exception_utils.cpp" />
+    <ClCompile Include="fibers.cpp" />
     <ClCompile Include="memory_utils.cpp" />
     <ClCompile Include="mirror.cpp" />
+    <ClCompile Include="module_cross_singleton.cpp" />
     <ClCompile Include="network.cpp" />
     <ClCompile Include="object_ref.cpp" />
     <ClCompile Include="stdafx.cpp">

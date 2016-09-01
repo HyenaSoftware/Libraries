@@ -13,7 +13,7 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="meta">
+    <Filter Include="Header Files\meta">
       <UniqueIdentifier>{5396b64a-aea3-4915-8cf2-8a63617c5528}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -78,16 +78,28 @@
     <ClInclude Include="rtti_aux.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="meta.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="meta\list.hpp">
-      <Filter>meta</Filter>
+      <Filter>Header Files\meta</Filter>
     </ClInclude>
     <ClInclude Include="meta\value_list.h">
-      <Filter>meta</Filter>
+      <Filter>Header Files\meta</Filter>
     </ClInclude>
     <ClInclude Include="network.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fibers.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="module_cross_singleton.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="boolean_operators.hpp">
+      <Filter>Header Files\meta</Filter>
+    </ClInclude>
+    <ClInclude Include="meta.hpp">
+      <Filter>Header Files\meta</Filter>
+    </ClInclude>
+    <ClInclude Include="entry_lock.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -114,6 +126,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="network.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fibers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="module_cross_singleton.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
