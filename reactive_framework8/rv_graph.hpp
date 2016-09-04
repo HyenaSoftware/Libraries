@@ -16,13 +16,6 @@ namespace reactive_framework8
 		template<class T> class node : public inotifiable
 		{
 		public:
-			node() = default;
-
-			node(rv<T>& host_rv_)
-			{
-				add_owner(host_rv_);
-			}
-
 			const boost::optional<T>& value() const
 			{
 				return _value;
@@ -73,19 +66,8 @@ namespace reactive_framework8
 				_ptr_rc = &rc_;
 			}
 
-			void add_owner(rv<T>& new_owner_rv_)
-			{
-				_host_rvs.insert(&new_owner_rv_);
-			}
-
-			void remove_owner(rv<T>& owner_rv_)
-			{
-				_host_rvs.erase(&owner_rv_);
-			}
-
 		protected:
 			virtual void notify() { }
-			std::unordered_set<rv<T>*> _host_rvs;
 
 		private:
 			boost::optional<T> _value;
@@ -99,8 +81,8 @@ namespace reactive_framework8
 		{
 		public:
 			value_node(rv<T>& host_rv_)
-				: node{ host_rv_ }
 			{
+				add_owner(host_rv_);
 			}
 
 			value_node(const value_node&) = default;
@@ -110,8 +92,19 @@ namespace reactive_framework8
 				_source = &src_node_;
 			}
 
+			void add_owner(rv<T>& new_owner_rv_)
+			{
+				_host_rvs.insert(&new_owner_rv_);
+			}
+
+			void remove_owner(rv<T>& owner_rv_)
+			{
+				_host_rvs.erase(&owner_rv_);
+			}
+
 		private:
 			node<T>* _source = nullptr;
+			std::unordered_set<rv<T>*> _host_rvs;
 
 			boost::optional<T> _re_calc() const override
 			{

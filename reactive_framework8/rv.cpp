@@ -23,6 +23,13 @@ template<class T> weak_ptr<T> as_weak(shared_ptr<T> ptr_)
 	return std::weak_ptr<T> { std::move(ptr_) };
 }
 
+
+rv_builder::rv_builder(rv_context& rc_, std::shared_ptr<graph::inotifiable> ptr_op_)
+	: _rc{ rc_ }
+	, _current_operator{ std::move(ptr_op_) }
+{
+}
+
 class rv_context::rv_context_impl
 {
 public:

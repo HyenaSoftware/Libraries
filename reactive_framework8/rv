@@ -130,10 +130,44 @@ namespace reactive_framework8
 	class rv_builder
 	{
 	public:
-		rv_builder(rv_context& rc_, std::shared_ptr<graph::inotifiable> ptr_op_)
-			: _rc { rc_ }
-			, _current_operator { std::move(ptr_op_) }
+		rv_builder(rv_context& rc_, std::shared_ptr<graph::inotifiable> ptr_op_ = nullptr);
+
+		//	map
+		//
+		template<class F, class T1, class... Ts> rv_builder map(F func_, rv<T1> rv1_, rv<Ts>... rvs_)
 		{
+			auto func = utility::as_std_function(func_);
+
+			return _map_impl(std::move(func), rv1_._ptr_impl, rvs_._ptr_impl ...);
+		}
+
+		template<class R, class T1, class... Ts> rv_builder map(std::function<R(T1, Ts...)> func_, rv<T1> rv1_, rv<Ts>... rvs_)
+		{
+			return _map_impl(std::move(func_), rv1_._ptr_impl, rvs_._ptr_impl...);
+		}
+
+		//	filter
+		//
+		template<class F, class T> rv_builder filter(F func_, rv<T> rv_)
+		{
+			auto func = utility::as_std_function(func_);
+
+			return filter(std::move(func), std::move(rv_));
+		}
+
+		template<class T> rv_builder filter(std::function<bool(T)> func_, rv<T> rv_)
+		{
+			return _filter_impl(std::move(func_), rv_._ptr_impl);
+		}
+
+		//	zip
+		//
+		template<class F, class T, class... Ts> rv_builder zip(F func_, rv<T> rv1_, rv<Ts>... rvs_)
+		{
+			typedef utility::function_traits<F>::result_type result_type;
+
+			return _map_impl(std::function<result_type(T, Ts...)>(std::forward<F>(func_)),
+				rv1_._ptr_impl, rvs_._ptr_impl ...);
 		}
 
 		template<class T> rv_builder into(rv<T>& target_)
@@ -165,6 +199,55 @@ namespace reactive_framework8
 	private:
 		std::shared_ptr<graph::inotifiable> _current_operator;
 		rv_context& _rc;
+
+		template<class R, class T1, class... Ts> rv_builder _map_impl(std::function<R(T1, Ts...)> func_
+			, std::shared_ptr<graph::value_node<T1>>& n1_, std::shared_ptr<graph::value_node<Ts>>&... ns_)
+		{
+			const auto tpl = std::make_tuple(n1_, ns_...);
+
+			auto ptr_operator = std::make_shared<graph::map_operator_node<R, T1, Ts...>>(std::move(func_), tpl);
+
+			_rc._hold_this_internal_nodes(ptr_operator);
+
+			utility::for_each(tpl, [=](auto ptr_input_)
+			{
+				_rc._hold_this_internal_nodes(ptr_input_);
+				//ptr_operator->set_source(*ptr_input_);
+
+				ptr_input_->assign(_rc);
+				ptr_input_->assign(ptr_operator);
+
+				_rc.debugger().notify_rv_assigned_to(*ptr_input_);
+				_rc.debugger().notify_new_operator(*ptr_operator);
+				_rc.debugger().add_edge_from_value(*ptr_input_, *ptr_operator);
+			});
+
+			ptr_operator->assign(_rc);
+			ptr_operator->invalidate();
+
+			return { _rc, ptr_operator };
+		}
+
+		template<class T> rv_builder _filter_impl(std::function<bool(T)> func_, std::shared_ptr<graph::value_node<T>>& node_)
+		{
+			auto ptr_operator = std::make_shared<graph::filter_operator_node<T>>(std::move(func_), node_);
+
+			_rc._hold_this_internal_nodes(ptr_operator);
+			_rc._hold_this_internal_nodes(node_);
+
+			node_->assign(_rc);
+			node_->assign(ptr_operator);
+
+			_rc.debugger().notify_rv_assigned_to(*node_);
+			_rc.debugger().notify_new_operator(*ptr_operator);
+			_rc.debugger().add_edge_from_value(*node_, *ptr_operator);
+			// value_notification is done by the node.set_value
+
+			ptr_operator->assign(_rc);
+			ptr_operator->invalidate();
+
+			return{ _rc, ptr_operator };
+		}
 	};
 
 
@@ -177,6 +260,7 @@ namespace reactive_framework8
 
 	class rv_context
 	{
+		friend class rv_builder;
 	public:
 		class rv_context_impl;
 
@@ -193,38 +277,31 @@ namespace reactive_framework8
 		//
 		template<class F, class T1, class... Ts> rv_builder map(F func_, rv<T1> rv1_, rv<Ts>... rvs_)
 		{
-			auto func = utility::as_std_function(func_);
-
-			return _map_impl(std::move(func), rv1_._ptr_impl, rvs_._ptr_impl ...);
+			return rv_builder { *this }.map(std::move(func_), std::move(rv1_), std::move(rvs_)...);
 		}
 
 		template<class R, class T1, class... Ts> rv_builder map(std::function<R(T1, Ts...)> func_, rv<T1> rv1_, rv<Ts>... rvs_)
 		{
-			return _map_impl(std::move(func_), rv1_._ptr_impl, rvs_._ptr_impl...);
+			return rv_builder{ *this }.map(std::move(func_), std::move(rv1_), std::move(rvs_)...);
 		}
 
 		//	filter
 		//
 		template<class F, class T> rv_builder filter(F func_, rv<T> rv_)
 		{
-			auto func = utility::as_std_function(func_);
-
-			return filter(std::move(func), std::move(rv_));
+			return rv_builder{ *this }.filter(std::move(func_), std::move(rv_));
 		}
 
 		template<class T> rv_builder filter(std::function<bool(T)> func_, rv<T> rv_)
 		{
-			return _filter_impl(std::move(func_), rv_._ptr_impl);
+			return rv_builder{ *this }.filter(std::move(func_), std::move(rv_));
 		}
 		
 		//	zip
 		//
 		template<class F, class T, class... Ts> rv_builder zip(F func_, rv<T> rv1_, rv<Ts>... rvs_)
 		{
-			typedef utility::function_traits<F>::result_type result_type;
-
-			return _map_impl(std::function<result_type(T, Ts...)>(std::forward<F>(func_)),
-				rv1_._ptr_impl, rvs_._ptr_impl ...);
+			return rv_builder{ *this }.zip(std::move(func_), std::move(rv1_), std::move(rvs_)...);
 		}
 
 		rv_abstract_debugger& debugger();
@@ -235,76 +312,6 @@ namespace reactive_framework8
 
 	private:
 		void _hold_this_internal_nodes(std::shared_ptr<graph::inotifiable>);
-
-		template<class R, class T1, class... Ts> rv_builder _old_map_impl(std::function<R(T1, Ts...)> func_, rv<T1> rv1_ , rv<Ts>... rvs_)
-		{
-			const auto tpl = std::make_tuple(rv1_._ptr_impl, rvs_._ptr_impl...);
-
-			auto ptr_operator = std::make_shared<rv_aggregate_operator<R, T1, Ts...>>(std::move(func_), tpl);
-
-			_hold_this_internal_nodes(ptr_operator);
-
-			utility::for_each(tpl, [=](auto ptr_input_)
-			{
-				ptr_input_->assign(*this);
-				ptr_input_->assign(ptr_operator);
-
-				debugger().notify_rv_assigned_to(*ptr_input_);
-				debugger().notify_new_operator(*ptr_operator);
-				debugger().add_edge(*ptr_input_, *ptr_operator);
-			});
-
-			return { *this, ptr_operator };
-		}
-
-		template<class R, class T1, class... Ts> rv_builder _map_impl(std::function<R(T1, Ts...)> func_
-			, std::shared_ptr<graph::value_node<T1>>& n1_, std::shared_ptr<graph::value_node<Ts>>&... ns_)
-		{
-			const auto tpl = std::make_tuple(n1_, ns_...);
-
-			auto ptr_operator = std::make_shared<graph::map_operator_node<R, T1, Ts...>>(std::move(func_), tpl);
-
-			_hold_this_internal_nodes(ptr_operator);
-
-			utility::for_each(tpl, [=](auto ptr_input_)
-			{
-				_hold_this_internal_nodes(ptr_input_);
-				//ptr_operator->set_source(*ptr_input_);
-
-				ptr_input_->assign(*this);
-				ptr_input_->assign(ptr_operator);
-
-				debugger().notify_rv_assigned_to(*ptr_input_);
-				debugger().notify_new_operator(*ptr_operator);
-				debugger().add_edge_from_value(*ptr_input_, *ptr_operator);
-			});
-
-			ptr_operator->assign(*this);
-			ptr_operator->invalidate();
-
-			return{ *this, std::move(ptr_operator) };
-		}
-
-		template<class T> rv_builder _filter_impl(std::function<bool(T)> func_, std::shared_ptr<graph::value_node<T>>& node_)
-		{
-			auto ptr_operator = std::make_shared<graph::filter_operator_node<T>>(std::move(func_), node_);
-			
-			_hold_this_internal_nodes(ptr_operator);
-			_hold_this_internal_nodes(node_);
-
-			node_->assign(*this);
-			node_->assign(ptr_operator);
-
-			debugger().notify_rv_assigned_to(*node_);
-			debugger().notify_new_operator(*ptr_operator);
-			debugger().add_edge_from_value(*node_, *ptr_operator);
-			// value_notification is done by the node.set_value
-
-			ptr_operator->assign(*this);
-			ptr_operator->invalidate();
-
-			return{ *this, std::move(ptr_operator) };
-		}
 
 		std::unique_ptr<rv_context_impl> _impl;
 
