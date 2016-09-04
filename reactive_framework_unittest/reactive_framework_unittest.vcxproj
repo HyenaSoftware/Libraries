@@ -44,8 +44,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\Cuccok\Projects\C++\Libraries\;D:\Cuccok\Projects\C++\Common;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\Cuccok\Projects\C++\Libraries\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(BOOST_PATH);$(ProjectDir)..;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -92,14 +92,18 @@
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="unittest_converters.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="extern.cpp" />
+    <ClCompile Include="reactive_framework_unittest_7.cpp" />
+    <ClCompile Include="reactive_framework_unittest_8.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="reactive_framework_unittest.cpp" />
+    <ClCompile Include="unittest_converters.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="unittest.runsettings" />

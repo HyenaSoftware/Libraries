@@ -13,7 +13,10 @@
 // TODO: reference additional headers your program requires here
 #include <algorithm>
 #include <future>
+#include <unordered_set>
+#include <typeinfo>
+#include <typeindex>
 #include <vector>
 
-#include <Utility\traits.h>
+#include <utility\traits.hpp>
 
