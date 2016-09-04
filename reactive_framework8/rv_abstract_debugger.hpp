@@ -3,17 +3,20 @@
 
 namespace reactive_framework8
 {
-	enum class E_DEBUGGER_EVENT
+	namespace mixins
 	{
-		NODE_VALUE_CHANGED
-	};
-
-	extern const std::unordered_map<E_DEBUGGER_EVENT, std::string> DEBUGGER_EVENT_TO_STRING;
-
+		template<class R> struct output;
+	}
 
 	template<class T> class rv;
-	template<class T> class underlying_rv;
-	class rv_abstract_operator;
+	//template<class T> class graph::node;
+	namespace graph
+	{
+		template<class T> class node;
+	}
+
+	//class rv_abstract_operator;
+	//template<class R> class rv_abstract_operator_with_return_type;
 
 
 	class rv_abstract_debugger
@@ -22,9 +25,11 @@ namespace reactive_framework8
 		rv_abstract_debugger() = default;
 		virtual ~rv_abstract_debugger() = default;
 
-
-		template<class T> void notify(E_DEBUGGER_EVENT event_, underlying_rv<T>& urv_, boost::optional<T> value_)
+		//	Node operations
+		//
+		template<class T> void notify_value_change(graph::node<T>& urv_, boost::optional<T> value_)
 		{
+			using namespace utility;
 			std::stringstream sb;
 
 			if (value_)
@@ -36,42 +41,63 @@ namespace reactive_framework8
 				sb << "[null]";
 			}
 
-			notify(event_, name_of(urv_), sb.str());
+			notify_value_change(name_of(urv_), sb.str());
 		}
 
-		virtual void notify(E_DEBUGGER_EVENT event_, std::string rv_name_, std::string value_) = 0;
+		virtual void notify_value_change(std::string rv_name_, std::string value_) = 0;
 
-
-		template<class T> void add_edge(underlying_rv<T>& urv_, rv_abstract_operator& op_)
+		template<class T> void notify_rv_assigned_to(graph::node<T>& urv_)
 		{
-			add_edge(&urv_, typeid(urv_), op_);
+			notify_rv_assigned_to(name_of(urv_));
 		}
 
-		template<class T> void add_edge(rv_abstract_operator& op_, underlying_rv<T>& urv_)
+		virtual void notify_rv_assigned_to(std::string rv_name_) = 0;
+
+		// operator operations
+		//
+		template<class T> void notify_new_operator(graph::node<T>& operator_)
 		{
-			add_edge(op_, &urv_, typeid(urv_));
+			notify_new_operator(name_of(&operator_, typeid(T)));
 		}
 
-		virtual void add_edge(void* ptr_, std::type_index, rv_abstract_operator& op_) = 0;
+		virtual void notify_new_operator(std::string) = 0;
 
-		virtual void add_edge(rv_abstract_operator& op_, void* ptr_, std::type_index) = 0;
+		//	Edge registration
+		//
+		template<class T, class R> void add_edge_from_value(graph::node<T>& value_node_, graph::node<R>& op_node_)
+		{
+			add_edge_from(&value_node_, typeid(T), &op_node_, typeid(R));
+		}
 
+		template<class T, class R> void add_edge_to_value(graph::node<R>& op_node_, graph::node<T>& value_node_)
+		{
+			add_edge_to(&op_node_, typeid(R), &value_node_, typeid(T));
+		}
+
+		virtual void add_edge_from(void* node_ptr_, std::type_index node_type_, void* operator_ptr_, std::type_index operator_type_) = 0;
+
+		virtual void add_edge_to(void* operator_ptr_, std::type_index operator_type_, void* node_ptr_, std::type_index node_type_) = 0;
+
+		//	basic stuffs
+		//
 		template<class T> void set_name(rv<T>& rv_, std::string name_)
 		{
 			set_name(rv_._ptr_impl.get(), std::move(name_));
 		}
 
+		void set_name(void*, std::string name_);
+
+		//	Auxiliary functions
+		//
 		template<class T> std::string name_of(rv<T>& rv_)
 		{
-			return name_of(rv_._ptr_impl.get(), typeid(*rv_._ptr_impl));
+			return name_of(rv_._ptr_impl.get(), typeid(T));
 		}
 
-		template<class T> std::string name_of(underlying_rv<T>& urv_)
+		template<class T> std::string name_of(graph::node<T>& urv_)
 		{
-			return name_of(&urv_, typeid(urv_));
+			return name_of(&urv_, typeid(T));
 		}
-
-		void set_name(void*, std::string name_);
 
 	protected:
 		std::string name_of(void* ptr_, std::type_index ti_);

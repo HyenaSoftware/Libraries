@@ -6,12 +6,6 @@ using namespace reactive_framework8;
 using namespace std;
 
 
-const std::unordered_map<E_DEBUGGER_EVENT, std::string> reactive_framework8::DEBUGGER_EVENT_TO_STRING
-{
-	{ E_DEBUGGER_EVENT::NODE_VALUE_CHANGED, "node value has changed" }
-};
-
-
 
 void rv_abstract_debugger::set_name(void* ptr_urv_, string rv_name_)
 {

@@ -1,0 +1,668 @@
+#pragma once
+
+#include "stdafx.h"
+#include "rv_abstract_debugger.hpp"
+
+
+namespace reactive_framework8
+{
+
+	template<class T> T aggregate(std::function<T(T, T)> f_, T&& a_, T&& b_)
+	{
+		return f_(std::forward<T>(a_), std::forward<T>(b_));
+	}
+
+	template<class T, class... Ts> T aggregate(std::function<T(T, T)> f_, T&& a_, T&& b_, Ts&&... ts_)
+	{
+		return aggregate(f_, aggregate(f_, std::forward<T>(a_), std::forward<T>(b_)), std::forward<Ts>(ts_)...);
+	}
+
+	template<class... Ts> bool and(Ts&&... ts_)
+	{
+		return aggregate<bool>([](bool a_, bool b_)
+		{
+			return a_ && b_;
+		}, true, std::forward<Ts>(ts_)...);
+	}
+
+	template<class... Ts> bool or(Ts&&... ts_)
+	{
+		return aggregate<bool>([](bool a_, bool b_)
+		{
+			return a_ || b_;
+		}, false, std::forward<Ts>(ts_)...);
+	}
+
+
+	class flag_mutex
+	{
+	public:
+		inline operator bool() const { return _allow; }
+
+		inline void set() { _allow = false; }
+		inline void clear() { _allow = true; }
+
+	private:
+		bool _allow = true;
+	};
+
+	class flag_lock
+	{
+	public:
+		inline flag_lock(flag_mutex& mtx_) : _mtx { mtx_ }
+		{
+			_mtx.set();
+		}
+
+		inline ~flag_lock()
+		{
+			_mtx.clear();
+		}
+
+	private:
+		flag_mutex& _mtx;
+	};
+
+
+	//
+	template<class T> class rv;
+	template<class T> class underlying_rv;
+	class rv_context;
+	class rv_builder;
+
+	class rv_abstract_operator : public std::enable_shared_from_this<rv_abstract_operator> { public: virtual void wake_up() = 0; };
+
+	template<class R> class rv_abstract_operator_with_return_type : public rv_abstract_operator { };
+
+
+	namespace mixins
+	{
+		template<class T> class value_mediator
+		{
+		public:
+			virtual void wake_up() = 0;
+			virtual void set(T) = 0;
+			virtual boost::optional<T> get() = 0;
+		};
+		
+		template<class... Us> struct input_slots
+		{
+			input_slots(std::tuple<std::weak_ptr<source<Us>>...> input_nodes_)
+				: _input_nodes{ std::move(input_nodes_) }
+			{
+			}
+			
+			std::tuple<std::weak_ptr<value_mediator<Us>>...> _input_nodes;
+
+			typedef std::tuple<Us...> input_values_t;
+
+			template<size_t... Ns>  boost::optional<input_values_t> get_inputs(std::index_sequence<Ns...>)
+			{
+				auto locked_inputs = std::make_tuple(std::get<Ns>(_input_nodes).lock()...);
+
+				bool any_expired = or(std::get<Ns>(locked_inputs) == nullptr...);
+
+				bool all_valid = !any_expired && and(std::get<Ns>(locked_inputs)->get().is_initialized()...);
+
+				if(!all_valid) return { };
+
+				return make_tuple(std::get<Ns>(locked_inputs)->get().get()...);
+			}
+		};
+
+		template<class T> struct inputs<T>
+		{
+			inputs(std::weak_ptr<underlying_rv<T>> input_nodes_)
+				: _input_nodes{ std::move(input_nodes_) }
+			{
+			}
+
+			typedef std::tuple<T> input_values_t;
+
+			std::weak_ptr<underlying_rv<T>> _input_nodes;
+
+			boost::optional<input_values_t> get_inputs(std::index_sequence<0>)
+			{
+				auto val = get_input();
+				if(val)
+				{
+					return std::make_tuple(*val);
+				}
+
+				return { };
+			}
+
+			boost::optional<T> get_input()
+			{
+				auto ptr = _input_nodes.lock();
+
+				bool is_valid = ptr && ptr->value().is_initialized();
+
+				return boost::make_optional(is_valid, ptr->value().get());
+			}
+		};
+
+		template<class R> struct output
+		{
+			void set_output(std::weak_ptr<target<R>> ptr_)
+			{
+				_output_nodes.push_back(std::move(ptr_));
+			}
+
+			// it's unsure whatever the target node exists or not
+			std::vector<std::weak_ptr<value_mediator<R>>> _output_nodes;
+
+			template<class Q> void _send(Q value_)
+			{
+				for (auto& out : _output_nodes)
+				{
+					auto ptr_node = out.lock();
+					ptr_node && (ptr_node->set(std::move(value_)), true);
+				}
+			}
+		};
+	}
+
+
+	template<class R, class... Ts> class node
+		: public target<R>
+		, public mixins::inputs<Ts...>
+		, public mixins::output<R>
+	{
+	public:
+		//
+		void wake_up() override
+		{
+			auto opt_val = _get_my_value();
+			if (opt_val)
+			{
+				_send(*opt_val);
+			}
+		}
+
+	protected:
+		rv_context* _ptr_rc = nullptr;
+
+		virtual boost::optional<R> _get_my_value() = 0;
+	};
+
+	template<class T> class value_node : public node<T, T>
+	{
+	public:
+		boost::optional<T> _get_my_value() override
+		{
+			get_inputs();
+
+			if (_value)
+			{
+				_host_rv->notify();
+			}
+
+			return _value;
+		}
+
+	private:
+		boost::optional<T> _value;
+		rv<T>* _host_rv = nullptr;
+	};
+
+	template<class R, class... Ts> class operator_node : public node<R, Ts...>
+	{
+	public:
+
+	private:
+		boost::optional<R> _get_my_value() override
+		{
+			// apply the operator and return with the result
+
+			return ;
+		}
+	};
+
+
+
+	/*
+	*	- join
+	*/
+	template<class R, class... Us> class rv_aggregate_operator : public rv_abstract_operator
+		, public mixins::inputs<Us...>
+		, public mixins::output<R>
+	{
+	public:
+		rv_aggregate_operator(std::function<R(Us...)> function_, std::tuple<std::weak_ptr<underlying_rv<Us>>...> input_nodes_)
+			: inputs { std::move(input_nodes_) }
+			, _function { std::move(function_) }
+		{
+		}
+
+		void wake_up() override
+		{
+			std::index_sequence_for<Us...> seq;
+
+			auto inps = get_inputs(seq);
+
+			if(inps)
+			{
+				_apply(*inps, seq);
+			}
+		}
+
+	private:
+		const std::function<R(Us...)> _function;
+
+		template<size_t... Ns> void _apply(input_values_t& inputs_, std::index_sequence<Ns...>)
+		{
+			auto val = _function(std::get<Ns>(inputs_)...);
+
+			_send(std::move(val));
+		}
+
+	};
+
+	/*
+	*	- concat
+	*
+	*/
+	template<class R, class... Us> class rv_optional_aggregate_operator : public rv_abstract_operator
+		, public mixins::inputs<boost::optional<Us>...>
+		, public mixins::output<R>
+	{
+	public:
+		rv_optional_aggregate_operator()
+		{
+		}
+	private:
+		const std::function<R(boost::optional<Us>...)> _function;
+	};
+
+	/*
+	*	- map
+	*/
+	template<class R, class T> class rv_map_operator : public rv_abstract_operator
+		, public mixins::inputs<T>
+		, public mixins::output<R>
+	{
+	public:
+		rv_map_operator(std::function<R(T)> function_) : _function { std::move(function_) } { }
+
+		void wake_up() override
+		{
+			// map R =? T
+			auto val = _function(_get());
+			_send(std::move(val));
+		}
+	private:
+		const std::function<R(T)> _function;
+	};
+
+	/*
+	*	- filter, R=T
+	*/
+	template<class T> class rv_filter_operator : public rv_abstract_operator
+		, public mixins::input<T>
+		, public mixins::output<T>
+	{
+	public:
+		rv_filter_operator(std::function<bool(T)> function_, std::weak_ptr<underlying_rv<T>> input_node_)
+			: _function{ std::move(function_) }
+			, input{ std::move(input_node_) }
+		{
+		}
+
+		void wake_up() override
+		{
+			// filter R == T
+
+			auto val = get_input();
+			bool keep = val && _function(*val);
+			if (keep)
+			{
+				_send(std::move(*val));
+			}
+		}
+	private:
+		const std::function<bool(T)> _function;
+	};
+
+
+
+	/*
+	*	c = a ? *a : b; // get_or(), R = T = U
+	*/
+	template<class R, class T, class U> class rv_hybrid_binary_operator : public rv_abstract_operator
+		, public mixins::inputs<boost::optional<T>, U>
+		, public mixins::output<R>
+	{
+	public:
+	private:
+		const std::function<R(boost::optional<T>, U)> _function;
+	};
+
+	/*
+	*
+	*/
+	template<class T> class underlying_rv
+	{
+	public:
+		underlying_rv(rv<T>& host_rv_) : _host_rv { &host_rv_ } { }
+
+		void operator << (boost::optional<T> value_)
+		{
+			_value.swap(value_);
+
+			// debugger
+			if (_ptr_rc)
+			{
+				_ptr_rc->debugger().notify_value_change(*this, _value);
+
+				_try_propagate_the_value();
+			}
+		}
+
+		void assign(rv_context& rc_)
+		{
+			_ptr_rc = &rc_;
+
+			// current value might not propagated yet
+			//_try_propagate_the_value();
+		}
+
+		void assign(std::shared_ptr<rv_abstract_operator> operator_)
+		{
+			_outputs.push_back(std::move(operator_));
+
+			// current value might not propagated yet to all of the outputs
+			//_try_propagate_the_value();
+		}
+
+		void operator >> (T& value_)
+		{
+			value_ = *_value;
+		}
+
+		const boost::optional<T>& value() const
+		{
+			return _value;
+		}
+
+		std::string name() const
+		{
+			return _host_rv.name();
+		}
+
+		void reset_owner(rv<T>& new_owner_rv_)
+		{
+			_host_rv = &new_owner_rv_;
+		}
+
+	private:
+		boost::optional<T> _value;
+		std::vector<std::shared_ptr<rv_abstract_operator>> _outputs;
+		// host rv always exists and holds this rv implementation
+		rv<T>* _host_rv;
+		rv_context* _ptr_rc = nullptr;
+
+		void _try_propagate_the_value()
+		{
+			if(_value)
+			{
+				_host_rv->notify();
+
+				for(auto& out : _outputs)
+				{
+					_ptr_rc->submit([=]
+					{
+						out->wake_up();
+					});
+				}
+			}
+		}
+	};
+
+
+	/*
+		forward chainging:
+		
+		node:a -> op:foreach -> nil
+	
+		node:a -> op:map ->		node:c
+		node:b -> +
+	*/
+
+	template<class T> class rv
+	{
+	public:
+		rv() = default;
+
+		rv(const rv& other_)
+			: _subscribes { other_._subscribes }
+			, _ptr_impl { std::make_shared<underlying_rv<T>>(*other_._ptr_impl) }
+		{
+			_ptr_impl->reset_owner(*this);
+		}
+
+		rv(rv&& other_)
+			: _subscribes { std::move(_subscribes) }
+			, _ptr_impl { std::move(other_._ptr_impl) }
+		{
+			_ptr_impl->reset_owner(*this);
+		}
+
+		rv(T value_)
+		{
+			*_ptr_impl << std::move(value_);
+		}
+
+		rv(rv_builder& builder_)
+		{
+			builder_.into(*this);
+		}
+
+		~rv() = default;
+
+		rv& operator<<(T t_)
+		{
+			*_ptr_impl << std::move(t_);
+
+			return *this;
+		}
+
+		rv& operator=(T value_)
+		{
+			*_ptr_impl << std::move(value_);
+
+			return *this;
+		}
+
+		rv& operator=(rv_builder& builder_)
+		{
+			builder_.into(*this);
+
+			return *this;
+		}
+
+		rv& operator=(rv&& other_)
+		{
+			_subscribes.swap(other_._subscribes);
+			_ptr_impl.swap(other_._ptr_impl);
+			_ptr_impl->reset_owner(*this);
+
+			return *this;
+		}
+
+		rv& operator=(const rv& other_)  = delete;
+
+		void subscribe(std::function<void(T)> callback_)
+		{
+			_subscribes.push_back(std::move(callback_));
+		}
+
+		void notify()
+		{
+			if (_ptr_impl->value())
+			{
+				for(auto& f : _subscribes)
+				{
+					f(*_ptr_impl->value());
+				}
+			}
+		}
+
+		const boost::optional<T>& value() const
+		{
+			return _ptr_impl->value();
+		}
+
+	//private:
+		std::shared_ptr<underlying_rv<T>> _ptr_impl = std::make_shared<underlying_rv<T>>(*this);
+
+		std::vector<std::function<void(T)>> _subscribes;
+	};
+
+
+
+
+
+	class rv_builder
+	{
+	public:
+		rv_builder(rv_context& rc_, std::shared_ptr<rv_abstract_operator> ptr_op_)
+			: _rc { rc_ }
+			, _current_operator { std::move(ptr_op_) }
+		{
+		}
+
+		template<class T> rv_builder into(rv<T>& target_)
+		{
+			auto output = dynamic_pointer_cast<mixins::output<T>>(_current_operator);
+
+			if (output)
+			{
+				target_._ptr_impl->assign(_rc);
+				output->set_output(target_._ptr_impl);
+
+				_rc.debugger().notify_rv_assigned_to(*target_._ptr_impl);
+				_rc.debugger().add_edge(*output, *target_._ptr_impl);
+			}
+
+			return *this;
+		}
+
+		template<class T> rv<T> as()
+		{
+			return { *this };
+		}
+
+	private:
+		std::shared_ptr<rv_abstract_operator> _current_operator;
+		rv_context& _rc;
+	};
+
+
+
+
+	class rv_context
+	{
+	public:
+		class rv_context_impl;
+
+		rv_context();
+		~rv_context();
+
+
+		template<class T> rv_builder from(rv<T> rv_)
+		{
+			return { };
+		}
+
+		//	map
+		//
+		template<class F, class T1, class... Ts> rv_builder map(F func_, rv<T1> rv1_, rv<Ts>... rvs_)
+		{
+			auto func = utility::as_std_function(func_);
+
+			return _map_impl(std::move(func), std::move(rv1_), std::move(rvs_)...);
+		}
+
+		template<class R, class T1, class... Ts> rv_builder map(std::function<R(T1, Ts...)> func_, rv<T1> rv1_, rv<Ts>... rvs_)
+		{
+			return _map_impl(std::move(func_), std::move(rv1_), std::move(rvs_)...);
+		}
+
+		template<class R, class T1, class... Ts> rv_builder _map_impl(std::function<R(T1, Ts...)> func_, rv<T1> rv1_ , rv<Ts>... rvs_)
+		{
+			const auto tpl = std::make_tuple(rv1_._ptr_impl, rvs_._ptr_impl...);
+
+			auto ptr_operator = std::make_shared<rv_aggregate_operator<R, T1, Ts...>>(std::move(func_), tpl);
+
+			utility::for_each(tpl, [=](auto ptr_input_)
+			{
+				ptr_input_->assign(*this);
+				ptr_input_->assign(ptr_operator);
+
+				debugger().notify_rv_assigned_to(*ptr_input_);
+				debugger().notify_new_operator(*ptr_operator);
+				debugger().add_edge(*ptr_input_, *ptr_operator);
+			});
+
+			return { *this, ptr_operator };
+		}
+
+		//	filter
+		//
+		template<class F, class T> rv_builder filter(F func_, rv<T> rv_)
+		{
+			auto func = utility::as_std_function(func_);
+
+			return filter(std::move(func), std::move(rv_));
+		}
+
+		template<class T> rv_builder filter(std::function<bool(T)> func_, rv<T> rv_)
+		{
+			return _filter_impl(std::move(func_), std::move(rv_));
+		}
+
+		template<class T> rv_builder _filter_impl(std::function<bool(T)> func_, rv<T> rv_)
+		{
+			auto ptr_operator = std::make_shared<rv_filter_operator<T>>(std::move(func_), rv_._ptr_impl);
+			
+			rv_._ptr_impl->assign(*this);
+			rv_._ptr_impl->assign(ptr_operator);
+
+			debugger().notify_rv_assigned_to(*rv_._ptr_impl);
+			debugger().notify_new_operator(*ptr_operator);
+			debugger().add_edge(*rv_._ptr_impl, *ptr_operator);
+
+			return{ *this, ptr_operator };
+		}
+		
+		//	zip
+		//
+		template<class F, class T, class... Ts> rv_builder zip(F func_, rv<T> rv1_, rv<Ts>... rvs_)
+		{
+			typedef utility::function_traits<F>::result_type result_type;
+
+			return _map_impl(std::function<result_type(T, Ts...)>(std::forward<F>(func_)),
+				std::move(rv1_), std::move(rvs_)...);
+		}
+
+		rv_abstract_debugger& debugger();
+
+		void reset_debugger(std::unique_ptr<rv_abstract_debugger>);
+
+		void submit(std::function<void()> task_);
+
+	private:
+		std::unique_ptr<rv_context_impl> _impl;
+
+		//	1st - allocation 
+		//	2nd - deallocation - make sure no other thread keep locked its mutex
+		//std::unique_ptr<rv_abstract_debugger> _debugger;
+
+		//	2nd - allocation
+		//	1st - deallocation - terminate running threads
+		//utility::thread_pool _thread_pool;
+	};
+}
+
+

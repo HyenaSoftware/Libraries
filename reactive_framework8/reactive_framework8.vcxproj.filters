@@ -36,6 +36,9 @@
     <ClInclude Include="rv_abstract_debugger.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="rv_graph.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
